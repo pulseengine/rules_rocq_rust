@@ -1,0 +1,48 @@
+{
+  "tool_name": "rocq",
+  "github_repo": "rocq-prover/platform",
+  "latest_version": "2025.01.0",
+  "last_checked": "2026-01-11T00:00:00.000000Z",
+  "versions": {
+    "2025.01.0": {
+      "release_date": "2025-01-15",
+      "platforms": {
+        "darwin_amd64": {
+          "sha256": "abc123def4567890abc123def4567890abc123def4567890abc123def4567890",
+          "url_suffix": "rocq-2025.01.0-x86_64-macos.tar.gz"
+        },
+        "darwin_arm64": {
+          "sha256": "def456abc7890123def456abc7890123def456abc7890123def456abc7890123",
+          "url_suffix": "rocq-2025.01.0-aarch64-macos.tar.gz"
+        },
+        "linux_amd64": {
+          "sha256": "123abc456def7890123abc456def7890123abc456def7890123abc456def7890",
+          "url_suffix": "rocq-2025.01.0-x86_64-linux.tar.gz"
+        },
+        "linux_arm64": {
+          "sha256": "456def789abc0123456def789abc0123456def789abc0123456def789abc0123",
+          "url_suffix": "rocq-2025.01.0-aarch64-linux.tar.gz"
+        }
+      }
+    },
+    "2024.12.0": {
+      "release_date": "2024-12-01",
+      "platforms": {
+        "darwin_amd64": {
+          "sha256": "old123def4567890abc123def4567890abc123def4567890abc123def4567890",
+          "url_suffix": "rocq-2024.12.0-x86_64-macos.tar.gz"
+        },
+        "linux_amd64": {
+          "sha256": "old456abc7890123def456abc7890123def456abc7890123def456abc7890",
+          "url_suffix": "rocq-2024.12.0-x86_64-linux.tar.gz"
+        }
+      }
+    }
+  },
+  "supported_platforms": [
+    "darwin_amd64",
+    "darwin_arm64",
+    "linux_amd64",
+    "linux_arm64"
+  ]
+}

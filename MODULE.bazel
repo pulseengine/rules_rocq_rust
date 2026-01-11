@@ -1,0 +1,64 @@
+"""Bazel Module for Rocq and coq-of-rust Rules
+
+This module provides Bazel rules for Rocq theorem proving and coq-of-rust integration.
+Following the patterns established by rules_rust and rules_wasm_component.
+"""
+
+module(
+    name = "rules_rocq_rust",
+    version = "0.1.0",
+    compatibility_level = 1,
+)
+
+# Core dependencies following rules_rust and rules_wasm_component patterns
+bazel_dep(name = "rules_rust", version = "0.68.1")
+bazel_dep(name = "rules_wasm_component", version = "1.0.0")
+bazel_dep(name = "rules_cc", version = "0.2.14")
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "platforms", version = "1.0.0")
+
+# Development dependencies
+bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
+bazel_dep(name = "stardoc", version = "0.7.2", dev_dependency = True)
+
+# Rocq toolchain extension (Bazel 8 symbolic macro pattern)
+rocq = use_extension("//rocq:extensions.bzl", "rocq")
+rocq.toolchain(
+    version = "2025.01.0",
+    strategy = "download",
+    editions = ["2021"],  # Coq/Rocq edition compatibility
+)
+use_repo(rocq, "rocq_toolchains")
+
+# coq-of-rust toolchain extension
+coq_of_rust = use_extension("//coq_of_rust:extensions.bzl", "coq_of_rust")
+coq_of_rust.toolchain(
+    version = "0.5.0",
+    strategy = "download",
+)
+use_repo(coq_of_rust, "coq_of_rust_toolchains")
+
+# Register toolchains for target platform resolution
+register_toolchains(
+    "@rocq_toolchains//:rocq_toolchain",
+    "@coq_of_rust_toolchains//:coq_of_rust_toolchain",
+)
+
+# Rust toolchain setup for coq-of-rust integration
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(
+    edition = "2021",
+    extra_target_triples = [
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "aarch64-apple-darwin",
+    ],
+    versions = ["1.91.1"],
+)
+use_repo(rust, "rust_toolchains")
+
+register_toolchains("@rust_toolchains//:all")
+
+# Register default C++ toolchains for any C++ dependencies
+register_toolchains("@bazel_tools//tools/cpp:all")
