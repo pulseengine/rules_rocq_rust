@@ -45,6 +45,9 @@ def _setup_downloaded_rocq_tools(repository_ctx):
     
     # Get tool info to determine file type
     tool_info = get_tool_info(repository_ctx, "rocq", version, platform)
+    if not tool_info:
+        fail("No tool info found for Rocq {} on platform {}".format(version, platform))
+    
     file_type = tool_info.get("file_type", "tar.gz")
     binary_name = tool_info.get("binary_name", "coqc")
     
@@ -170,6 +173,12 @@ filegroup(
 filegroup(
     name = "stdlib",
     srcs = glob(["lib/coq/**/*.vo", "lib/coq/**/*.cmxs"]),
+)
+
+# Filegroup for Coq Platform libraries
+filegroup(
+    name = "coq_libraries",
+    srcs = glob(["lib/coq/**/*.vo", "lib/coq/**/*.cmxs", "lib/coq/**/*.cmi"]),
 )
 """
     )
