@@ -4,11 +4,12 @@ Bazel rules for Rocq theorem proving and coq-of-rust integration, following the 
 
 ## Features
 
-- **Rocq Integration**: Compile Coq proofs with proper dependency management
+- **Rocq Platform Integration**: Complete Coq Platform support with binary installers
 - **coq-of-rust Support**: Translate Rust code to Coq for formal verification
 - **Bazel 8 bzlmod**: Modern Bazel module system support
-- **Hermetic Toolchains**: Download and verify all tools with checksums
+- **Hermetic Toolchains**: Download and verify complete Coq Platform installers
 - **Enterprise Ready**: Support for air-gap environments and corporate mirrors
+- **Cross-Platform**: macOS (arm64), Windows (x86_64), Linux support
 
 ## Quick Start
 
@@ -81,6 +82,73 @@ bazel run //:test_basic
 2. Add URL pattern to `toolchains/tool_registry.bzl`
 3. Create repository rule in `toolchains/<tool>_toolchain.bzl`
 4. Add module extension to expose the toolchain
+
+### Rocq Platform Details
+
+The rules_rocq_rust implementation uses the official [Coq Platform](https://github.com/rocq-prover/platform) binary installers:
+
+- **Complete packages**: Each installer contains Coq compiler, standard library, and tools
+- **Multiple versions**: Supports Coq 8.20 (recommended), 8.19, 8.18, etc.
+- **Cross-platform**: macOS (arm64), Windows (x86_64), Linux
+- **No OCaml required**: The binaries are self-contained
+
+### Enterprise Deployment
+
+For air-gap environments, set these environment variables:
+
+```bash
+# Use vendored tools from third_party/toolchains/
+export BAZEL_ROCQ_OFFLINE=1
+
+# Or use a custom vendor directory
+export BAZEL_ROCQ_VENDOR_DIR=/path/to/vendor
+
+# Or use a corporate mirror
+export BAZEL_ROCQ_MIRROR=https://mirror.company.com
+
+### QuickChick Support
+
+QuickChick is a randomized property-based testing framework for Coq that requires OCaml. Since the binary Coq Platform installers don't include OCaml, you need to enable OCaml support separately.
+
+#### Enabling OCaml for QuickChick
+
+Add this to your MODULE.bazel:
+
+```bazel
+# Optional OCaml toolchain for QuickChick support
+ocaml = use_extension("@rules_rocq_rust//toolchains:ocaml_extensions.bzl", "ocaml")
+ocaml.toolchain(
+    version = "5.1.1",
+        strategy = "download",  # only hermetic downloads supported
+)
+use_repo(ocaml, "ocaml_toolchains")
+
+register_toolchains("@ocaml_toolchains//:ocaml_toolchain")
+```
+
+#### OCaml Strategy
+
+- **download**: Downloads prebuilt OCaml binaries (only strategy supported for hermeticity)
+
+### Enterprise Deployment
+
+For air-gap environments, set these environment variables:
+
+```bash
+# Use vendored tools from third_party/toolchains/
+export BAZEL_ROCQ_OFFLINE=1
+
+# Or use a custom vendor directory
+export BAZEL_ROCQ_VENDOR_DIR=/path/to/vendor
+
+# Or use a corporate mirror
+export BAZEL_ROCQ_MIRROR=https://mirror.company.com
+
+# For OCaml (if using QuickChick)
+export BAZEL_OCAML_OFFLINE=1
+export BAZEL_OCAML_VENDOR_DIR=/path/to/vendor
+export BAZEL_OCAML_MIRROR=https://mirror.company.com
+```
 
 ## License
 

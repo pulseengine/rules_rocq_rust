@@ -30,6 +30,15 @@ rocq.toolchain(
 )
 use_repo(rocq, "rocq_toolchains")
 
+# Optional OCaml toolchain for QuickChick support
+# Only enable this if you need QuickChick or other OCaml-based plugins
+# ocaml = use_extension("//toolchains:ocaml_extensions.bzl", "ocaml")
+# ocaml.toolchain(
+#     version = "5.1.1",
+#             strategy = "download",  # only hermetic downloads supported
+# )
+# use_repo(ocaml, "ocaml_toolchains")
+
 # coq-of-rust toolchain extension
 coq_of_rust = use_extension("//coq_of_rust:extensions.bzl", "coq_of_rust")
 coq_of_rust.toolchain(

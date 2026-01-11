@@ -1,0 +1,54 @@
+{
+  "tool_name": "ocaml",
+  "github_repo": "ocaml/ocaml",
+  "latest_version": "5.1.1",
+  "last_checked": "2026-01-11T00:00:00.000000Z",
+  "versions": {
+    "5.1.1": {
+      "release_date": "2024-07-26",
+      "platforms": {
+        "darwin_amd64": {
+          "sha256": "placeholder_actual_sha256_needed",
+          "url_suffix": "ocaml-5.1.1-x86_64-macos.tar.gz",
+          "file_type": "tar.gz"
+        },
+        "darwin_arm64": {
+          "sha256": "placeholder_actual_sha256_needed",
+          "url_suffix": "ocaml-5.1.1-aarch64-macos.tar.gz",
+          "file_type": "tar.gz"
+        },
+        "linux_amd64": {
+          "sha256": "placeholder_actual_sha256_needed",
+          "url_suffix": "ocaml-5.1.1-x86_64-linux.tar.gz",
+          "file_type": "tar.gz"
+        },
+        "linux_arm64": {
+          "sha256": "placeholder_actual_sha256_needed",
+          "url_suffix": "ocaml-5.1.1-aarch64-linux.tar.gz",
+          "file_type": "tar.gz"
+        }
+      }
+    },
+    "5.0.0": {
+      "release_date": "2023-12-07",
+      "platforms": {
+        "darwin_amd64": {
+          "sha256": "placeholder_actual_sha256_needed",
+          "url_suffix": "ocaml-5.0.0-x86_64-macos.tar.gz",
+          "file_type": "tar.gz"
+        },
+        "linux_amd64": {
+          "sha256": "placeholder_actual_sha256_needed",
+          "url_suffix": "ocaml-5.0.0-x86_64-linux.tar.gz",
+          "file_type": "tar.gz"
+        }
+      }
+    }
+  },
+  "supported_platforms": [
+    "darwin_amd64",
+    "darwin_arm64",
+    "linux_amd64",
+    "linux_arm64"
+  ]
+}

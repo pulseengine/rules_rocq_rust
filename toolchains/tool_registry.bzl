@@ -68,11 +68,11 @@ def detect_platform(repository_ctx):
 _URL_PATTERNS = {
     "rocq": {
         "base": "https://github.com/{repo}/releases/download/{version}",
-        "filename": "rocq-{version}-{suffix}",
+        "filename": "Coq-Platform-release-{version}-{suffix}",
     },
-    "coq": {
+    "ocaml": {
         "base": "https://github.com/{repo}/releases/download/{version}",
-        "filename": "coq-{version}-{suffix}",
+        "filename": "ocaml-{version}-{suffix}",
     },
 }
 
