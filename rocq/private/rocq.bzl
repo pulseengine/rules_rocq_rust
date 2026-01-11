@@ -26,10 +26,19 @@ def _rocq_library_impl(ctx):
     - ctx.actions.args() for command-line construction
     """
     
-    # Collect source files and dependencies
+    # Validate source files
     sources = ctx.files.srcs
     if not sources:
-        return []
+        fail("rocq_library requires at least one source file")
+    
+    # Validate file extensions
+    for src in sources:
+        if not src.path.endswith(".v"):
+            fail("rocq_library only accepts .v files, got: " + src.path)
+    
+    # Check for rocq binary
+    if not hasattr(ctx, "executable") or not hasattr(ctx.executable, "_rocq_binary"):
+        fail("rocq_library requires Rocq toolchain to be configured")
     
     # Process dependencies to get transitive include paths and .vo files
     transitive_deps = depset()

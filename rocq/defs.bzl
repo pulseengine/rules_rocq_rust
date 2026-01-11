@@ -3,10 +3,8 @@
 Following the exact pattern established by rules_rust.
 """
 
-load(
-    "//rocq:toolchain.bzl",
-    _rocq_stdlib_filegroup = "rocq_stdlib_filegroup",
-)
+# Note: toolchain.bzl removed temporarily until full implementation
+# _rocq_stdlib_filegroup will be added when toolchain support is complete
 load(
     "//rocq/private:rocq.bzl",
     _rocq_library = "rocq_library",

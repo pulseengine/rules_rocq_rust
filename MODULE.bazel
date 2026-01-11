@@ -40,12 +40,13 @@ use_repo(rocq, "rocq_toolchains")
 # use_repo(ocaml, "ocaml_toolchains")
 
 # coq-of-rust toolchain extension
-coq_of_rust = use_extension("//coq_of_rust:extensions.bzl", "coq_of_rust")
-coq_of_rust.toolchain(
-    version = "0.5.0",
-    strategy = "download",
-)
-use_repo(coq_of_rust, "coq_of_rust_toolchains")
+# Note: Temporarily disabled until full implementation
+# coq_of_rust = use_extension("//coq_of_rust:extensions.bzl", "coq_of_rust")
+# coq_of_rust.toolchain(
+#     version = "0.5.0",
+#     strategy = "download",
+# )
+# use_repo(coq_of_rust, "coq_of_rust_toolchains")
 
 # Register toolchains for target platform resolution
 register_toolchains(
