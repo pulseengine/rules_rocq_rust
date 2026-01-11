@@ -1,0 +1,38 @@
+# Git ignore file for rules_rocq_rust
+
+# Bazel generated files
+bazel-*
+*.bazel
+
+# Build artifacts
+bazel-out/
+bazel-bin/
+bazel-testlogs/
+bazel-rules_rocq_rust/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# Dependency directories
+third_party/
+
+# Local configuration
+.bazelrc
+.bazelversion
+
+# MacOS files
+.DS_Store
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Log files
+*.log
+
+# Temporary files
+*~ 
+*.swp
+*.tmp
