@@ -25,7 +25,8 @@ This document tracks the implementation status of rules_rocq_rust.
 ## ⚠️ In Progress
 
 ### Toolchain System
-- [ ] Complete Rocq toolchain implementation
+- [x] Basic toolchain structure implemented
+- [x] Mock toolchain for testing
 - [ ] Binary download and verification
 - [ ] Platform-specific toolchain support
 - [ ] Hermetic toolchain management
