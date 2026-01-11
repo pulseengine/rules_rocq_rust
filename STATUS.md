@@ -76,7 +76,9 @@ This document tracks the implementation status of rules_rocq_rust.
 - [ ] Contribution guide
 
 ### Testing
-- [ ] Unit tests
+- [x] Basic rule loading tests
+- [x] Rule instantiation tests
+- [ ] Unit tests for individual rules
 - [ ] Integration tests
 - [ ] CI/CD pipeline
 - [ ] Code coverage
