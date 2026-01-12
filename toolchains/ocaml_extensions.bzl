@@ -5,6 +5,7 @@ or other OCaml-based Coq plugins.
 """
 
 load("@bazel_features//:features.bzl", "bazel_features")
+load("//:toolchains/ocaml_toolchain.bzl", "ocaml_toolchain_repository")
 
 # Tag classes for OCaml toolchain configuration
 _OcamlToolchainTag = tag_class(
@@ -25,9 +26,6 @@ _OcamlToolchainTag = tag_class(
 # OCaml module extension implementation
 def _ocaml_impl(module_ctx):
     """Implementation of OCaml toolchain extension."""
-    
-    # Load the OCaml toolchain repository rule
-    load("//toolchains:ocaml_toolchain.bzl", "ocaml_toolchain_repository")
     
     # Collect toolchain configurations from all modules
     toolchains = []

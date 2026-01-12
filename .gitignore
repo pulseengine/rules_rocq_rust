@@ -3,6 +3,8 @@
 # Bazel generated files
 bazel-*
 *.bazel
+# Except for test BUILD files
+!test/**/*.bazel
 
 # Build artifacts
 bazel-out/

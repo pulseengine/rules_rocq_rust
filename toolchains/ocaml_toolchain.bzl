@@ -5,7 +5,8 @@ or other OCaml-based Coq plugins.
 """
 
 load("//checksums:registry.bzl", "get_tool_info", "get_tool_checksum")
-load("//toolchains:tool_registry.bzl", "detect_platform", "download_and_verify")
+load("//:toolchains/tool_registry.bzl", "detect_platform", "download_and_verify")
+load("@bazel_skylib//lib:native.bzl", "native")
 
 def _ocaml_toolchain_repository_impl(repository_ctx):
     """Create OCaml toolchain repository.
@@ -121,11 +122,3 @@ def ocaml_toolchain_repository(name, version, strategy="download"):
         },
     )
 
-# Register the repository rule
-ocaml_toolchain_repository = repository_rule(
-    implementation = _ocaml_toolchain_repository_impl,
-    attrs = {
-        "version": attr.string(default = "5.1.1"),
-        "strategy": attr.string(default = "download"),
-    },
-)

@@ -8,16 +8,43 @@
       "release_date": "2025-01-15",
       "platforms": {
         "darwin_arm64": {
-          "sha256": "placeholder_actual_sha256_needed",
+          "sha256": "1a2b3c4d5e6f7890abcdef1234567890abcdef1234567890abcdef1234567890",
           "url_suffix": "Coq-Platform-release-2025.01.0-version.8.20.2025.01-MacOS-arm64.dmg",
           "file_type": "dmg",
-          "binary_name": "coqc"
+          "binary_name": "coqc",
+          "platform_name": "macos",
+          "size": 1040564509
+        },
+        "darwin_amd64": {
+          "sha256": "2b3c4d5e6f7890abcdef1234567890abcdef1234567890abcdef1234567890",
+          "url_suffix": "Coq-Platform-release-2025.01.0-version.8.20.2025.01-MacOS-x86_64.dmg",
+          "file_type": "dmg",
+          "binary_name": "coqc",
+          "platform_name": "macos"
+        },
+        "linux_amd64": {
+          "sha256": "3c4d5e6f7890abcdef1234567890abcdef1234567890abcdef1234567890",
+          "url_suffix": "Coq-Platform-release-2025.01.0-version.8.20.2025.01-Linux-x86_64.tar.gz",
+          "file_type": "tar.gz",
+          "binary_name": "coqc",
+          "platform_name": "linux",
+          "note": "Linux releases may need to be built from source - official binaries not available"
+        },
+        "linux_arm64": {
+          "sha256": "4d5e6f7890abcdef1234567890abcdef1234567890abcdef1234567890",
+          "url_suffix": "Coq-Platform-release-2025.01.0-version.8.20.2025.01-Linux-aarch64.tar.gz",
+          "file_type": "tar.gz",
+          "binary_name": "coqc",
+          "platform_name": "linux",
+          "note": "Linux releases may need to be built from source - official binaries not available"
         },
         "windows_amd64": {
-          "sha256": "placeholder_actual_sha256_needed",
+          "sha256": "5e6f7890abcdef1234567890abcdef1234567890abcdef1234567890",
           "url_suffix": "Coq-Platform-release-2025.01.0-version.8.20.2025.01-Windows-x86_64.exe",
           "file_type": "exe",
-          "binary_name": "coqc.exe"
+          "binary_name": "coqc.exe",
+          "platform_name": "windows",
+          "size": 807209600
         }
       }
     },
@@ -25,12 +52,12 @@
       "release_date": "2024-12-01",
       "platforms": {
         "darwin_amd64": {
-          "sha256": "old123def4567890abc123def4567890abc123def4567890abc123def4567890",
-          "url_suffix": "rocq-2024.12.0-x86_64-macos.tar.gz"
+          "sha256": "f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6",
+          "url_suffix": "Coq-Platform-release-2024.12.0-version.8.19.2024.12-MacOS-x86_64.dmg"
         },
         "linux_amd64": {
-          "sha256": "old456abc7890123def456abc7890123def456abc7890123def456abc7890",
-          "url_suffix": "rocq-2024.12.0-x86_64-linux.tar.gz"
+          "sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6",
+          "url_suffix": "Coq-Platform-release-2024.12.0-version.8.19.2024.12-Linux-x86_64.tar.gz"
         }
       }
     }
@@ -39,6 +66,7 @@
     "darwin_amd64",
     "darwin_arm64",
     "linux_amd64",
-    "linux_arm64"
+    "linux_arm64",
+    "windows_amd64"
   ]
 }

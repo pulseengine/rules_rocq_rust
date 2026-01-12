@@ -6,8 +6,66 @@ established by rules_wasm_component.
 Usage:
     load("//toolchains:tool_registry.bzl", "tool_registry")
     
-    # In repository rule implementation:
+    # Download and Verification
+# =============================================================================
+
+def download_and_verify(repository_ctx, tool_name, version, platform):
+    """Download tool with checksum verification.
+    
+    Args:
+        repository_ctx: Bazel repository context
+        tool_name: Name of the tool
+        version: Version to download
+        platform: Platform string
+        
+    Returns:
+        Path to downloaded and verified tool
+    """
+=======
+# =============================================================================
+# Health Checks and Monitoring (following rules_wasm_component patterns)
+# =============================================================================
+
+def add_build_telemetry(repository_ctx, tools_list):
+    """Add build telemetry following rules_wasm_component pattern."""
+    print("Build telemetry: {} tools configured".format(len(tools_list)))
+    # Placeholder for future telemetry implementation
+    # Would track download times, success rates, etc.
+
+def create_health_check(repository_ctx, tool_name):
+    """Create health check for a specific tool following rules_wasm_component pattern."""
+    print("Health check created for {}".format(tool_name))
+    # Placeholder for individual tool health checks
+
+def log_diagnostic_info(repository_ctx, tool_name, platform, version, strategy):
+    """Log diagnostic information following rules_wasm_component pattern."""
+    print("DIAGNOSTIC: {} {} for {} using {}".format(tool_name, version, platform, strategy))
+
+def format_diagnostic_error(error_code, message, suggestion):
+    """Format diagnostic error following rules_wasm_component pattern."""
+    return "ERROR {}: {}. {}".format(error_code, message, suggestion)
+
+# =============================================================================
+# Download and Verification
+# =============================================================================
+
+def download_and_verify(repository_ctx, tool_name, version, platform):
+    """Download tool with checksum verification.
+    
+    Args:
+        repository_ctx: Bazel repository context
+        tool_name: Name of the tool
+        version: Version to download
+        platform: Platform string
+        
+    Returns:
+        Path to downloaded and verified tool
+    """In repository rule implementation:
     platform = tool_registry.detect_platform(ctx)
+"""
+
+# Import native module for path operations
+load("@bazel_skylib//lib:native.bzl", "native")
     tool_registry.download(ctx, "rocq", "2025.01.0", platform)
 
 Enterprise/Air-Gap Support:
@@ -57,6 +115,8 @@ def detect_platform(repository_ctx):
         arch = "amd64"
     elif arch in ["aarch64", "arm64"]:
         arch = "arm64"
+    
+    return "{}_{}".format(os_name, arch)
     
     return "{}_{}".format(os_name, arch)
 
@@ -197,6 +257,12 @@ def download_and_verify(repository_ctx, tool_name, version, platform):
     expected_checksum = tool_info.get("sha256")
     url_suffix = tool_info.get("url_suffix", "")
     
+    # Validate that we have a checksum
+    if not expected_checksum or expected_checksum.startswith("placeholder"):
+        fail("No valid checksum found for {} {} on {}. Please update checksums/tools/{}.json with real SHA256 values.".format(
+            tool_name, version, platform, tool_name
+        ))
+    
     # Get GitHub repo from registry
     tool_data = _load_tool_checksums_from_json(repository_ctx, tool_name)
     github_repo = tool_data.get("github_repo", "rocq-prover/platform")
@@ -204,6 +270,12 @@ def download_and_verify(repository_ctx, tool_name, version, platform):
     # Build download URL
     default_url = _build_download_url(tool_name, version, platform, tool_info, github_repo)
     filename = native.path.basename(default_url)
+    
+    # Log download information
+    print("Preparing to download {} {} for platform {} from: {}".format(
+        tool_name, version, platform, default_url
+    ))
+    print("Expected SHA256 checksum: {}".format(expected_checksum))
     
     # Resolve download source
     source = _resolve_download_source(
@@ -213,18 +285,25 @@ def download_and_verify(repository_ctx, tool_name, version, platform):
     # Download the tool
     if source.type == "local":
         tool_path = source.path
+        print("Using local tool from: {}".format(tool_path))
+        
+        # Verify local file exists
+        if not repository_ctx.path(tool_path).exists:
+            fail("Local tool file not found: {}".format(tool_path))
     else:
         # Download from URL with verification
-        download_result = repository_ctx.download(
-            url = source.url,
-            sha256 = expected_checksum,
-        )
-        tool_path = download_result.path
-        
-        # Verify the checksum matches
-        # In a real implementation, this would use actual checksum verification
-        print("Downloaded:", tool_path)
-        print("Expected checksum:", expected_checksum)
+        try:
+            download_result = repository_ctx.download(
+                url = source.url,
+                sha256 = expected_checksum,
+            )
+            tool_path = download_result.path
+            print("Successfully downloaded and verified: {}".format(tool_path))
+            print("Checksum verification: PASSED")
+        except Exception as e:
+            fail("Failed to download or verify {} {}: {}".format(
+                tool_name, version, str(e)
+            ))
     
     return tool_path
 

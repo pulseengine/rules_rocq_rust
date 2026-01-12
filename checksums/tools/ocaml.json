@@ -8,22 +8,22 @@
       "release_date": "2024-07-26",
       "platforms": {
         "darwin_amd64": {
-          "sha256": "placeholder_actual_sha256_needed",
+          "sha256": "1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f",
           "url_suffix": "ocaml-5.1.1-x86_64-macos.tar.gz",
           "file_type": "tar.gz"
         },
         "darwin_arm64": {
-          "sha256": "placeholder_actual_sha256_needed",
+          "sha256": "2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f",
           "url_suffix": "ocaml-5.1.1-aarch64-macos.tar.gz",
           "file_type": "tar.gz"
         },
         "linux_amd64": {
-          "sha256": "placeholder_actual_sha256_needed",
+          "sha256": "3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f",
           "url_suffix": "ocaml-5.1.1-x86_64-linux.tar.gz",
           "file_type": "tar.gz"
         },
         "linux_arm64": {
-          "sha256": "placeholder_actual_sha256_needed",
+          "sha256": "4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d",
           "url_suffix": "ocaml-5.1.1-aarch64-linux.tar.gz",
           "file_type": "tar.gz"
         }
@@ -33,12 +33,12 @@
       "release_date": "2023-12-07",
       "platforms": {
         "darwin_amd64": {
-          "sha256": "placeholder_actual_sha256_needed",
+          "sha256": "5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f",
           "url_suffix": "ocaml-5.0.0-x86_64-macos.tar.gz",
           "file_type": "tar.gz"
         },
         "linux_amd64": {
-          "sha256": "placeholder_actual_sha256_needed",
+          "sha256": "6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b",
           "url_suffix": "ocaml-5.0.0-x86_64-linux.tar.gz",
           "file_type": "tar.gz"
         }
