@@ -1,0 +1,26 @@
+{
+  "tool_name": "test_tool",
+  "github_repo": "rules-rocq-rust/test-repo",
+  "versions": {
+    "1.0.0": {
+      "platforms": {
+        "darwin_arm64": {
+          "url_suffix": "macos-arm64.tar.gz",
+          "sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+        },
+        "darwin_amd64": {
+          "url_suffix": "macos-amd64.tar.gz",
+          "sha256": "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+        },
+        "linux_amd64": {
+          "url_suffix": "linux-amd64.tar.gz",
+          "sha256": "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3"
+        },
+        "windows_amd64": {
+          "url_suffix": "windows-amd64.zip",
+          "sha256": "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
+        }
+      }
+    }
+  }
+}

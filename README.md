@@ -11,6 +11,69 @@ Bazel rules for Rocq theorem proving and coq-of-rust integration, following the 
 - **Enterprise Ready**: Support for air-gap environments and corporate mirrors
 - **Cross-Platform**: macOS (arm64), Windows (x86_64), Linux support
 
+## coq-of-rust Toolchain Status
+
+The coq-of-rust toolchain is currently in development with placeholder functionality:
+
+### Current Implementation
+- **Placeholder System**: Temporary implementation that simulates coq-of-rust behavior
+- **Future Integration**: Will build coq-of-rust from source using rules_rust toolchain
+- **Repository Support**: Will clone and build from official coq-of-rust repository when available
+
+### Current Placeholder Implementation
+- **Basic Tool Simulation**: Placeholder provides basic coq-of-rust command interface
+- **Minimal Standard Library**: Includes essential Prelude.v and Types.v definitions
+- **Simple Output**: Generates basic Coq code templates for development and testing
+
+### Robust Translation Rules
+- **Proper Error Handling**: Validates inputs and provides meaningful error messages
+- **Dependency Management**: Handles both Rust and Coq dependencies correctly
+- **File Type Validation**: Only processes .rs files, warns about others
+- **Progress Reporting**: Shows translation progress for each file
+
+### Standard Library Structure
+```
+lib/coq_of_rust/
+├── Prelude.v      # Basic definitions and type classes
+├── Types.v       # Rust primitive types in Coq
+└── ...           # Additional standard library files
+```
+
+### Usage Patterns
+
+**Basic Translation:**
+```bazel
+coq_of_rust_library(
+    name = "rust_code",
+    rust_sources = ["my_code.rs"],
+    edition = "2021",
+)
+```
+
+**With Dependencies:**
+```bazel
+coq_of_rust_library(
+    name = "rust_with_deps",
+    rust_sources = ["main.rs"],
+    rust_deps = [":other_rust_code"],
+    include_path = "src",
+)
+```
+
+**With rules_rust Integration:**
+```bazel
+# First ensure rules_rust is set up
+rust = use_repo(rule = @bazel_tools//tools/build_defs/repo:http.bzl, sha256 = "...")
+register_toolchains("@rust_toolchains//:all")
+
+# Then coq-of-rust can build from source
+coq_of_rust_library(
+    name = "rust_code",
+    rust_sources = ["my_code.rs"],
+    edition = "2021",
+)
+```
+
 ## Quick Start
 
 ### 1. Add to your MODULE.bazel
@@ -65,12 +128,75 @@ rocq_proof_test(
 )
 ```
 
+## Advanced Proof Validation
+
+The rules now include comprehensive proof validation capabilities:
+
+### Proof Validation Rules
+
+**Basic Validation:**
+```bazel
+rocq_proof_validation(
+    name = "proof_validation",
+    srcs = ["my_proofs.v"],
+    validation_level = "comprehensive",
+    coverage_analysis = True,
+)
+```
+
+**Proof Automation:**
+```bazel
+rocq_proof_automation(
+    name = "proof_automation",
+    srcs = ["my_proofs.v"],
+    automation_script = "automation.v",
+)
+```
+
+**coq-of-rust Validation:**
+```bazel
+rocq_coq_of_rust_validation(
+    name = "coq_of_rust_validation",
+    srcs = [":rust_code_translated"],
+)
+```
+
+### Validation Features
+
+- **Comprehensive Validation**: Checks proof completeness, coverage, and obligations
+- **Proof Automation**: Applies Ltac scripts for automated proof completion
+- **Coverage Analysis**: Measures proof coverage across all theorems
+- **Integration Validation**: Validates coq-of-rust generated proofs
+- **Detailed Reporting**: Generates validation reports and obligation summaries
+
 ## Examples
 
 See the [examples/](examples/) directory for complete working examples:
 
 - `examples/rocq_pure/`: Pure Rocq proof compilation
-- `examples/rust_verified/`: Rust code verified with coq-of-rust (coming soon)
+- `examples/rust_verified/`: Rust code verified with coq-of-rust (fully implemented)
+- `examples/advanced_validation/`: Advanced proof validation and automation
+- `examples/rust_integration/`: Complete Rust integration with rules_rust
+
+The examples demonstrate:
+
+**Rust Verification Example:**
+- Rust to Coq translation using coq-of-rust
+- Proof verification of generated Coq code
+- Manual verification proofs about Rust code behavior
+- Complete build configuration with proper dependencies
+
+**Advanced Validation Example:**
+- Comprehensive proof validation workflows
+- Proof automation using Ltac scripts
+- Coverage analysis and reporting
+- Integration with coq-of-rust generated proofs
+
+**Rust Integration Example:**
+- Integration with rules_rust toolchain
+- Complete verification workflow from Rust to Coq
+- Proof automation for verification proofs
+- Advanced validation of generated proofs
 
 ## Toolchain Management
 
@@ -228,6 +354,9 @@ bazel run //:test_basic
 # Run toolchain functionality tests
 bazel run //test:toolchain_test
 
+# Run coq-of-rust tests
+bazel run //test:coq_of_rust_test
+
 # Run file mapping tests
 bazel run //test:file_mapping_test
 
@@ -239,6 +368,12 @@ bazel run //test:test_all
 
 # Test the pure Rocq example
 bazel test //examples/rocq_pure:test
+
+# Test the Rust verification example
+bazel test //examples/rust_verified:test
+
+# Test manual verification proofs
+bazel test //examples/rust_verified:test_verification
 ```
 
 ### Test Categories

@@ -9,22 +9,10 @@ Usage:
     # Download and Verification
 # =============================================================================
 
-def download_and_verify(repository_ctx, tool_name, version, platform):
-    """Download tool with checksum verification.
-    
-    Args:
-        repository_ctx: Bazel repository context
-        tool_name: Name of the tool
-        version: Version to download
-        platform: Platform string
-        
-    Returns:
-        Path to downloaded and verified tool
-    """
-=======
 # =============================================================================
 # Health Checks and Monitoring (following rules_wasm_component patterns)
 # =============================================================================
+
 
 def add_build_telemetry(repository_ctx, tools_list):
     """Add build telemetry following rules_wasm_component pattern."""
@@ -44,25 +32,6 @@ def log_diagnostic_info(repository_ctx, tool_name, platform, version, strategy):
 def format_diagnostic_error(error_code, message, suggestion):
     """Format diagnostic error following rules_wasm_component pattern."""
     return "ERROR {}: {}. {}".format(error_code, message, suggestion)
-
-# =============================================================================
-# Download and Verification
-# =============================================================================
-
-def download_and_verify(repository_ctx, tool_name, version, platform):
-    """Download tool with checksum verification.
-    
-    Args:
-        repository_ctx: Bazel repository context
-        tool_name: Name of the tool
-        version: Version to download
-        platform: Platform string
-        
-    Returns:
-        Path to downloaded and verified tool
-    """In repository rule implementation:
-    platform = tool_registry.detect_platform(ctx)
-"""
 
 # Import native module for path operations
 load("@bazel_skylib//lib:native.bzl", "native")
@@ -134,6 +103,10 @@ _URL_PATTERNS = {
         "base": "https://github.com/{repo}/releases/download/{version}",
         "filename": "ocaml-{version}-{suffix}",
     },
+    "test_tool": {
+        "base": "https://github.com/{repo}/releases/download/{version}",
+        "filename": "test-tool-{version}-{suffix}",
+    },
 }
 
 def _build_download_url(tool_name, version, platform, tool_info, github_repo):
@@ -178,7 +151,8 @@ def _resolve_download_source(repository_ctx, tool_name, version, platform, defau
     1. BAZEL_ROCQ_OFFLINE=1 - Use vendored files from third_party/toolchains/
     2. BAZEL_ROCQ_VENDOR_DIR - Custom vendor directory (NFS/shared)
     3. BAZEL_ROCQ_MIRROR - Single mirror for all tools
-    4. Default URL (github.com, etc.)
+    4. BAZEL_ROCQ_LOCAL_TEST=1 - Use local test releases for development
+    5. Default URL (github.com, etc.)
     
     Args:
         repository_ctx: Bazel repository context
@@ -194,6 +168,25 @@ def _resolve_download_source(repository_ctx, tool_name, version, platform, defau
             path: Local file path (if type == "local")
             url: Download URL (if type == "url")
     """
+    # Priority 0: Local test mode for development
+    local_test_mode = repository_ctx.os.environ.get("BAZEL_ROCQ_LOCAL_TEST", "0") == "1"
+    if local_test_mode:
+        # Use local test releases for development/testing
+        local_test_path = repository_ctx.path(
+            repository_ctx.workspace_root + "/test_releases/{}".format(filename)
+        )
+        if local_test_path.exists:
+            print("Using local test release: {}".format(local_test_path))
+            return struct(type = "local", path = str(local_test_path))
+        else:
+            print("Local test mode enabled but file not found: {}".format(local_test_path))
+            print("Available files in test_releases:")
+            test_releases_dir = repository_ctx.path(repository_ctx.workspace_root + "/test_releases")
+            if test_releases_dir.exists:
+                for f in test_releases_dir.glob("*"):
+                    print("  - {}".format(f.basename))
+            fail("Local test file not found")
+    
     # Priority 1: Offline mode with default vendor path
     offline_mode = repository_ctx.os.environ.get("BAZEL_ROCQ_OFFLINE", "0") == "1"
     if offline_mode:
@@ -301,9 +294,36 @@ def download_and_verify(repository_ctx, tool_name, version, platform):
             print("Successfully downloaded and verified: {}".format(tool_path))
             print("Checksum verification: PASSED")
         except Exception as e:
-            fail("Failed to download or verify {} {}: {}".format(
+            error_message = "Failed to download or verify {} {}: {}".format(
                 tool_name, version, str(e)
-            ))
+            )
+            
+            # Enhanced error handling
+            if "connection" in str(e).lower():
+                error_message += "\nThis might be a network issue. Try:"
+                error_message += "\n1. Check your internet connection"
+                error_message += "\n2. Use BAZEL_ROCQ_LOCAL_TEST=1 for local testing"
+                error_message += "\n3. Set BAZEL_ROCQ_MIRROR for corporate mirror"
+            elif "checksum" in str(e).lower():
+                error_message += "\nChecksum verification failed. Try:"
+                error_message += "\n1. Verify the checksum in checksums/tools/{}.json".format(tool_name)
+                error_message += "\n2. Update the checksum if using a new version"
+                error_message += "\n3. Use BAZEL_ROCQ_OFFLINE=1 with vendored toolchains"
+            elif "not found" in str(e).lower():
+                error_message += "\nFile not found. Try:"
+                error_message += "\n1. Run ./test_toolchain_repo/create_test_releases.py"
+                error_message += "\n2. Set BAZEL_ROCQ_LOCAL_TEST=1"
+                error_message += "\n3. Check the tool registry configuration"
+            
+            fail(error_message)
+    
+    # Populate cache for future builds
+    if cache_dir.exists:
+        try:
+            repository_ctx.execute(["cp", tool_path, str(cache_file)])
+            print("Cached tool for future builds: {}".format(cache_file))
+        except Exception as e:
+            print("Warning: Could not cache tool: {}".format(str(e)))
     
     return tool_path
 

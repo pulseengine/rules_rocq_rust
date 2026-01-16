@@ -49,6 +49,142 @@ load("//:test_basic.bzl", "test_basic_loading", "test_rocq_rules")
 # Test that loads and runs the toolchain tests  
 load("//test:toolchain_test.bzl", "test_all_toolchains")
 
+# Test rust_integration functionality
+load("//test:rust_integration_test.bzl", "test_rust_integration_all")
+
+test_suite(
+    name = "rust_integration_tests",
+    tests = [
+        ":test_rust_integration_basic",
+        ":test_rust_integration_provider_compatibility",
+        ":test_rust_integration_toolchain_coordination",
+    ],
+)
+
+# Individual rust_integration tests
+sh_test(
+    name = "test_rust_integration_basic",
+    srcs = ["rust_integration_test.bzl"],
+    args = ["--test_function=test_rust_integration_basic"],
+    tags = ["integration"],
+)
+
+sh_test(
+    name = "test_rust_integration_provider_compatibility",
+    srcs = ["rust_integration_test.bzl"],
+    args = ["--test_function=test_provider_compatibility"],
+    tags = ["integration"],
+)
+
+sh_test(
+    name = "test_rust_integration_toolchain_coordination",
+    srcs = ["rust_integration_test.bzl"],
+    args = ["--test_function=test_toolchain_coordination"],
+    tags = ["integration"],
+)
+
+# Test that runs all rust_integration tests
+sh_test(
+    name = "test_rust_integration_all",
+    srcs = ["rust_integration_test.bzl"],
+    args = ["--test_function=test_rust_integration_all"],
+    tags = ["integration", "comprehensive"],
+)
+
+# Test advanced validation functionality
+load("//test:advanced_validation_test.bzl", "test_advanced_validation_all")
+
+test_suite(
+    name = "advanced_validation_tests",
+    tests = [
+        ":test_advanced_validation_basic",
+        ":test_advanced_validation_custom",
+        ":test_advanced_validation_automation",
+        ":test_advanced_validation_coverage",
+        ":test_advanced_validation_external",
+        ":test_advanced_validation_providers",
+        ":test_advanced_validation_levels",
+        ":test_advanced_validation_integration",
+    ],
+)
+
+# Individual advanced validation tests
+sh_test(
+    name = "test_advanced_validation_basic",
+    srcs = ["advanced_validation_test.bzl"],
+    args = ["--test_function=test_advanced_validation_basic"],
+    tags = ["validation", "advanced"],
+)
+
+sh_test(
+    name = "test_advanced_validation_custom",
+    srcs = ["advanced_validation_test.bzl"],
+    args = ["--test_function=test_custom_validation"],
+    tags = ["validation", "advanced"],
+)
+
+sh_test(
+    name = "test_advanced_validation_automation",
+    srcs = ["advanced_validation_test.bzl"],
+    args = ["--test_function=test_proof_automation"],
+    tags = ["validation", "advanced"],
+)
+
+sh_test(
+    name = "test_advanced_validation_coverage",
+    srcs = ["advanced_validation_test.bzl"],
+    args = ["--test_function=test_coverage_analysis"],
+    tags = ["validation", "advanced"],
+)
+
+sh_test(
+    name = "test_advanced_validation_external",
+    srcs = ["advanced_validation_test.bzl"],
+    args = ["--test_function=test_external_prover_integration"],
+    tags = ["validation", "advanced"],
+)
+
+sh_test(
+    name = "test_advanced_validation_providers",
+    srcs = ["advanced_validation_test.bzl"],
+    args = ["--test_function=test_advanced_validation_providers"],
+    tags = ["validation", "advanced"],
+)
+
+sh_test(
+    name = "test_advanced_validation_levels",
+    srcs = ["advanced_validation_test.bzl"],
+    args = ["--test_function=test_validation_levels"],
+    tags = ["validation", "advanced"],
+)
+
+sh_test(
+    name = "test_advanced_validation_integration",
+    srcs = ["advanced_validation_test.bzl"],
+    args = ["--test_function=test_integration_with_existing_validation"],
+    tags = ["validation", "advanced"],
+)
+
+# Test that runs all advanced validation tests
+sh_test(
+    name = "test_advanced_validation_all",
+    srcs = ["advanced_validation_test.bzl"],
+    args = ["--test_function=test_advanced_validation_all"],
+    tags = ["validation", "advanced", "comprehensive"],
+)
+
+# Test that loads and runs the toolchain download tests
+load("//test:toolchain_download_test.bzl", "run_all_toolchain_tests")
+
+# Test that loads and runs the real download tests
+load("//test:real_download_test.bzl", "run_all_real_download_tests")
+
+# Test that loads and runs the complete workflow tests
+load("//test:complete_workflow_test.bzl", "run_all_complete_workflow_tests")
+
+# Test that loads and runs the comprehensive integration tests
+load("//test:integration_test_comprehensive.bzl", "run_all_comprehensive_integration_tests")
+
 # Test that loads and runs the integration tests
 load("//test:integration_test.bzl", "run_integration_tests")
 

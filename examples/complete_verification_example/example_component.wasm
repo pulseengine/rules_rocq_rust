@@ -1,0 +1,32 @@
+(module
+  (type $add (func (param i32 i32) (result i32)))
+  (type $validate (func (param i32) (result i32)))
+  
+  (func $add_values (type $add) (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.add)
+  
+  (func $validate_input (type $validate) (param $x i32) (result i32)
+    local.get $x
+    i32.const 0
+    i32.ge_s
+    if (result i32)
+      local.get $x
+    else
+      i32.const 0
+    end)
+  
+  (func $complex_operation (param $x i32) (param $y i32) (result i32)
+    local.get $x
+    local.get $y
+    call $add_values
+    local.get $x
+    local.get $y
+    call $add_values
+    i32.add)
+  
+  (export "add" (func $add_values))
+  (export "validate" (func $validate_input))
+  (export "complex" (func $complex_operation))
+)
