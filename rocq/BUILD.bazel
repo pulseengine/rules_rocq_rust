@@ -1,0 +1,8 @@
+# BUILD.bazel for rocq package
+# Required for Bzlmod compatibility - every directory with .bzl files needs a BUILD file
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files(
+    srcs = glob(["*.bzl"]),
+)

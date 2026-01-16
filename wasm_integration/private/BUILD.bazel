@@ -1,0 +1,8 @@
+# BUILD.bazel for wasm_integration/private package
+# Required for Bzlmod compatibility
+
+package(default_visibility = ["//wasm_integration:__subpackages__"])
+
+exports_files(
+    srcs = glob(["*.bzl"]),
+)

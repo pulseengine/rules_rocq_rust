@@ -2,9 +2,11 @@
 
 # Bazel generated files
 bazel-*
-*.bazel
-# Except for test BUILD files
-!test/**/*.bazel
+
+# Allow essential Bazel files
+!BUILD.bazel
+!WORKSPACE.bazel
+!MODULE.bazel
 
 # Build artifacts
 bazel-out/
