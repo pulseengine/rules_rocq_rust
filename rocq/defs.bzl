@@ -22,6 +22,10 @@ load(
     _rocq_proof_automation = "rocq_proof_automation",
     _rocq_coq_of_rust_validation = "rocq_coq_of_rust_validation",
 )
+load(
+    "//rocq_integration:defs.bzl",
+    _rocq_integration = "rocq_integration",
+)
 
 # Public API - following rules_rust naming conventions
 rocq_library = _rocq_library
@@ -49,7 +53,5 @@ rocq_proof_automation = _rocq_proof_automation
 rocq_coq_of_rust_validation = _rocq_coq_of_rust_validation
 # Validates coq-of-rust generated proofs
 
-# Load rocq_integration module
-load("//rocq_integration:defs.bzl", "rocq_integration")
-rocq_integration = rocq_integration
+rocq_integration = _rocq_integration
 # Module extension for Rocq integration functionality
