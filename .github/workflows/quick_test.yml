@@ -1,0 +1,35 @@
+name: Quick Test
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  quick-test:
+    name: Quick Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Set up Bazel
+      uses: bazelbuild/setup-bazelisk@v2
+      
+    - name: Run quick tests
+      run: |
+        echo "🚀 Running quick tests..."
+        
+        # Test basic functionality
+        bazel test //test:toolchain_test
+        
+        # Test simple example
+        bazel test //examples/simple_rust_verification:simple_verification_test
+        
+        # Check buildifier formatting
+        bazel run @bazel_skylib//tools:buildifier -- --mode=check $(find . -name "*.bzl" -o -name "BUILD*" -o -name "*.bazel")
+        
+        echo "✅ Quick tests passed!"

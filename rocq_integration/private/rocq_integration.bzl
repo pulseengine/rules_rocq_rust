@@ -117,11 +117,38 @@ def rocq_library(
     automation_enabled = False,
     metrics_enabled = False,
     visualization_enabled = False,
-    reporting_enabled = False,
     **kwargs
 ):
     """
     Creates a Rocq library for theorem proving.
+    
+    This rule compiles and verifies Coq theorems from Rust-generated or hand-written
+    Coq files, providing comprehensive proof validation and coverage analysis.
+    
+    Args:
+        name: Name of the Rocq library target
+        srcs: List of Coq source files (.v) to compile
+        deps: Dependencies on other Rocq libraries
+        theorems: List of theorem names to verify
+        proofs: List of proof names to check
+        validation_level: Level of validation (basic, comprehensive, strict)
+        coverage_analysis: Enable proof coverage analysis
+        automation_enabled: Enable automated proof completion
+        metrics_enabled: Collect verification metrics
+        visualization_enabled: Generate proof visualization
+        **kwargs: Additional arguments for the rule
+    
+    Returns:
+        A Rocq library target with compiled theorems and proofs
+    
+    Example:
+        rocq_library(
+            name = "my_theorems",
+            srcs = ["theorems.v"],
+            theorems = ["theorem_1", "theorem_2"],
+            validation_level = "comprehensive"
+        )
+    """
     
     Args:
         name: Name of the rule

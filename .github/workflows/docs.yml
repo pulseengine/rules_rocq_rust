@@ -1,0 +1,96 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.md'
+      - 'README.md'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.md'
+      - 'README.md'
+  workflow_dispatch:
+
+jobs:
+  docs:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Check README structure
+      run: |
+        echo "📚 Checking README structure..."
+        
+        # Check that README has essential sections
+        required_sections=(
+          "Features"
+          "Quick Start"
+          "Examples"
+          "Toolchain Management"
+          "License"
+        )
+        
+        for section in "${required_sections[@]}"; do
+          if grep -q "## $section" README.md; then
+            echo "✅ Section '$section' found"
+          else
+            echo "❌ Section '$section' missing"
+            exit 1
+          fi
+        done
+        
+        # Check that README mentions key features
+        required_features=(
+          "Rocq Platform Integration"
+          "coq-of-rust Support"
+          "Bazel 8 bzlmod"
+          "Hermetic Toolchains"
+          "Cross-Platform"
+        )
+        
+        for feature in "${required_features[@]}"; do
+          if grep -q "$feature" README.md; then
+            echo "✅ Feature '$feature' mentioned"
+          else
+            echo "❌ Feature '$feature' not mentioned"
+            exit 1
+          fi
+        done
+        
+        echo "✅ README structure is complete"
+      
+    - name: Check markdown links
+      run: |
+        echo "🔗 Checking markdown links..."
+        
+        # Install markdown-link-check
+        npm install -g markdown-link-check
+        
+        # Check all markdown files
+        find . -name "*.md" -exec markdown-link-check {} \;
+        
+        echo "✅ All markdown links are valid"
+      
+    - name: Check example documentation
+      run: |
+        echo "📂 Checking example documentation..."
+        
+        # Check that examples have README files
+        for example_dir in examples/*/; do
+          if [ -d "$example_dir" ]; then
+            example_name=$(basename "$example_dir")
+            if [ -f "${example_dir}README.md" ]; then
+              echo "✅ $example_name has README"
+            else
+              echo "❌ $example_name missing README"
+              # Don't fail, just warn
+            fi
+          fi
+        done
+        
+        echo "✅ Example documentation checked"

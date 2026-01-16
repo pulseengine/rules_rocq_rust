@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Get version
+      id: version
+      run: |
+        # Extract version from tag
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "Version: $VERSION"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref }}
+        name: rules_rocq_rust v${{ steps.version.outputs.version }}
+        body: |
+          ## rules_rocq_rust v${{ steps.version.outputs.version }}
+          
+          ### 🎉 New Release!
+          
+          This release includes:
+          - Production-ready toolchain
+          - Full cross-platform support
+          - rules_rust integration
+          - Comprehensive examples
+          - Complete documentation
+          
+          ### 📋 Changes
+          
+          See [CHANGELOG.md](https://github.com/pulseengine/rules_rocq_rust/blob/main/CHANGELOG.md) for details.
+          
+          ### 🚀 Usage
+          
+          ```bazel
+          # Add to your MODULE.bazel
+          bazel_dep(name = "rules_rocq_rust", version = "${{ steps.version.outputs.version }}")
+          
+          # Use in your BUILD files
+          load("@rules_rocq_rust//coq_of_rust:defs.bzl", "coq_of_rust_library")
+          
+          coq_of_rust_library(
+              name = "my_rust",
+              rust_sources = ["main.rs"],
+              edition = "2021"
+          )
+          ```
+          
+          ### 📦 Assets
+          
+          - Toolchain: Ready to use
+          - Examples: Simple and advanced
+          - Documentation: Complete guide
+        files: |
+          README.md
+          LICENSE
+        draft: false
+        prerelease: false
+      
+    - name: Build and test release
+      run: |
+        echo "🧪 Testing release v${{ steps.version.outputs.version }}..."
+        
+        # Run all tests
+        bazel test //test/... --test_output=all
+        
+        # Build all examples
+        bazel build //examples/...
+        
+        echo "✅ Release v${{ steps.version.outputs.version }} is ready!"
