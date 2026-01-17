@@ -22,9 +22,8 @@ bazel-rules_rocq_rust/
 # Dependency directories
 third_party/
 
-# Local configuration
-.bazelrc
-.bazelversion
+# Local configuration (user-specific)
+.bazelrc.local
 
 # MacOS files
 .DS_Store
