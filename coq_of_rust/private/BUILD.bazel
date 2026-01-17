@@ -1,0 +1,8 @@
+# BUILD.bazel for coq_of_rust/private package
+# Required for Bzlmod compatibility
+
+package(default_visibility = ["//coq_of_rust:__subpackages__"])
+
+exports_files(
+    srcs = glob(["*.bzl"]),
+)
