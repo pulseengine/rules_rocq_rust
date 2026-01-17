@@ -113,6 +113,7 @@ filegroup(
     name = "test_tool",
     srcs = glob(["bin/*"]),
     executable = True,
+            cfg = "exec",
 )
 
 filegroup(
@@ -127,6 +128,7 @@ test_toolchain_test = rule(
         "tool": attr.label(
             default = ":test_tool",
             executable = True,
+            cfg = "exec",
         ),
     },
 )

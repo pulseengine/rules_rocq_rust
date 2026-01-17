@@ -509,6 +509,7 @@ filegroup(
     name = "coq-of-rust",
     srcs = ["{}"],
     executable = True,
+            cfg = "exec",
 )
 
 # Filegroup for standard library
