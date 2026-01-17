@@ -18,7 +18,6 @@ This module implements the integration between rules_rust and coq_of_rust,
 following the patterns established by both rules_rust and rules_rocq_rust.
 """
 
-load("@bazel_skylib//lib:deps.bzl", "deps")
 load("//coq_of_rust/private:coq_of_rust.bzl", "CoqOfRustInfo")
 
 # Provider for Rust to Coq integration

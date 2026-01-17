@@ -18,7 +18,6 @@ This module contains tests to verify the advanced proof validation,
 automation, coverage analysis, and external prover integration capabilities.
 """
 
-load("@bazel_skylib//lib:deps.bzl", "deps")
 load("//test:toolchain_test.bzl", "test_toolchain_availability")
 
 # Test advanced validation functionality

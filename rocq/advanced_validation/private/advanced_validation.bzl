@@ -18,7 +18,6 @@ This module implements enhanced proof validation capabilities for Rocq,
 following the patterns established by rules_rust and rules_rocq_rust.
 """
 
-load("@bazel_skylib//lib:deps.bzl", "deps")
 
 # Enhanced provider for advanced validation results
 AdvancedValidationInfo = provider(

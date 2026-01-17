@@ -3,7 +3,6 @@
 This follows the exact pattern used in rules_rust's private implementation.
 """
 
-load("@bazel_skylib//lib:deps.bzl", "deps")
 
 # Provider for coq-of-rust translation results
 CoqOfRustInfo = provider(

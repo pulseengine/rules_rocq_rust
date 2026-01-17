@@ -18,7 +18,6 @@ This module implements the integration between rules_wasm_component and coq_of_r
 following the patterns established by both rules_wasm_component and rules_rocq_rust.
 """
 
-load("@bazel_skylib//lib:deps.bzl", "deps")
 load("//coq_of_rust/private:coq_of_rust.bzl", "CoqOfRustInfo")
 
 # Provider for WASM to Coq integration

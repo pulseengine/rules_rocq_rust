@@ -18,7 +18,6 @@ This module implements the end-to-end verification workflows, integrating
 all the components built in previous phases into comprehensive pipelines.
 """
 
-load("@bazel_skylib//lib:deps.bzl", "deps")
 
 # Provider for verification pipeline information
 VerificationPipelineInfo = provider(
