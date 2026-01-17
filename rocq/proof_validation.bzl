@@ -9,7 +9,6 @@ Rocq compilation, including:
 - Custom validation rules
 """
 
-load("@bazel_skylib//lib:deps.bzl", "deps")
 load("@bazel_skylib//lib:native.bzl", "native")
 
 # Provider for proof validation results

@@ -3,7 +3,6 @@
 This module provides advanced proof validation capabilities beyond basic compilation.
 """
 
-load("@bazel_skylib//lib:deps.bzl", "deps")
 
 # Provider for proof validation results
 RocqValidationInfo = provider(

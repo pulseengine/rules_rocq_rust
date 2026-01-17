@@ -18,7 +18,6 @@ This module contains tests to verify the integration between rules_rust
 and coq_of_rust toolchains.
 """
 
-load("@bazel_skylib//lib:deps.bzl", "deps")
 load("//test:toolchain_test.bzl", "test_toolchain_availability")
 
 # Test the basic rust_integration functionality
