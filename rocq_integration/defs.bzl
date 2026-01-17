@@ -6,7 +6,7 @@ with the Rocq proof assistant.
 """
 
 load(
-    "//rocq_integration:private/rocq_integration.bzl",
+    "//rocq_integration/private:rocq_integration.bzl",
     _rocq_integration = "rocq_integration",
 )
 
