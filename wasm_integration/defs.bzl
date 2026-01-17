@@ -19,7 +19,7 @@ allowing WebAssembly components to be verified using Coq for formal verification
 """
 
 load(
-    "//wasm_integration:private/wasm_integration.bzl",
+    "//wasm_integration/private:wasm_integration.bzl",
     _wasm_to_coq_library = "wasm_to_coq_library",
     _wasm_component_verification = "wasm_component_verification",
 )

@@ -6,12 +6,12 @@ Following the exact pattern established by rules_rust.
 # Note: toolchain.bzl removed temporarily until full implementation
 # _rocq_stdlib_filegroup will be added when toolchain support is complete
 load(
-    "//rocq:private/rocq.bzl",
+    "//rocq/private:rocq.bzl",
     _rocq_library = "rocq_library",
     _rocq_proof_test = "rocq_proof_test",
 )
 load(
-    "//rocq:private/toolchain.bzl",
+    "//rocq/private:toolchain.bzl",
     _rocq_toolchain = "rocq_toolchain",
 )
 load(
