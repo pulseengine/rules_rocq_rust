@@ -28,7 +28,7 @@ coq_of_rust_toolchain = rule(
             allow_single_file = True,
             executable = True,
             cfg = "exec",
-            cfg = "exec",
+
             doc = "coq-of-rust binary",
         ),
         "stdlib_files": attr.label_list(
