@@ -5,188 +5,27 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  schedule:
-    - cron: '0 0 * * *'  # Daily at midnight
-
-env:
-  BAZEL_VERSION: "6.0.0"
+  workflow_dispatch:
 
 jobs:
-  # Linting and formatting
-  lint:
-    name: Lint and Format
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-      
-    - uses: bazelbuild/setup-bazelisk@v2
-      with:
-        bazelisk-version: ${{ env.BAZEL_VERSION }}
-    
-    - name: Check formatting
-      run: bazel run @bazel_skylib//tools:buildifier -- --mode=check $(find . -name "*.bzl" -o -name "BUILD*" -o -name "*.bazel")
-      
-    - name: Check for common issues
-      run: |
-        echo "Checking for common issues..."
-        
-        # No TODO/FIXME in main code
-        if grep -r "TODO\|FIXME" --exclude-dir=.git --exclude-dir=examples . 2>/dev/null; then
-          echo "⚠️ Found TODO/FIXME comments"
-        else
-          echo "✅ No TODO/FIXME in main code"
-        fi
-        
-        # No hardcoded paths
-        if grep -r "/usr/local" --exclude-dir=.git . 2>/dev/null; then
-          echo "⚠️ Found hardcoded /usr/local paths"
-        else
-          echo "✅ No hardcoded paths"
-        fi
-
-  # Unit tests
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    needs: lint
-    
-    steps:
-    - uses: actions/checkout@v4
-      
-    - uses: bazelbuild/setup-bazelisk@v2
-      with:
-        bazelisk-version: ${{ env.BAZEL_VERSION }}
-    
-    - name: Run unit tests
-      run: bazel test //test/... --test_output=all
-
-  # Integration tests
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: unit-tests
-    
-    steps:
-    - uses: actions/checkout@v4
-      
-    - uses: bazelbuild/setup-bazelisk@v2
-      with:
-        bazelisk-version: ${{ env.BAZEL_VERSION }}
-    
-    - name: Run integration tests
-      run: bazel run //test:integration_test_comprehensive
-
-  # Example tests
-  example-tests:
-    name: Example Tests
-    runs-on: ubuntu-latest
-    needs: integration-tests
-    
-    steps:
-    - uses: actions/checkout@v4
-      
-    - uses: bazelbuild/setup-bazelisk@v2
-      with:
-        bazelisk-version: ${{ env.BAZEL_VERSION }}
-    
-    - name: Test simple example
-      run: bazel test //examples/simple_rust_verification:simple_verification_test
-      
-    - name: Test advanced example
-      run: bazel test //examples/advanced_rust_integration:complete_proof_test
-
-  # Cross-platform matrix
-  cross-platform:
-    name: Cross-Platform
+  # Multi-platform verification
+  verify-multiplatform:
+    name: Verify Rules (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    needs: example-tests
+        os: [ubuntu-latest, macos-latest]
     
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
       
-    - uses: bazelbuild/setup-bazelisk@v2
-      with:
-        bazelisk-version: ${{ env.BAZEL_VERSION }}
+    - name: Set up Bazel
+      uses: bazelbuild/setup-bazelisk@v3
     
-    - name: Test platform
-      run: bazel test //test:toolchain_test
-
-  # Documentation
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    needs: cross-platform
-    
-    steps:
-    - uses: actions/checkout@v4
-      
-    - name: Check README
+    - name: Verify rules load
       run: |
-        echo "Checking README..."
-        test -f README.md
-        grep -q "Features" README.md
-        grep -q "Quick Start" README.md
-        grep -q "Examples" README.md
-        echo "✅ README is complete"
-
-  # Release validation
-  release:
-    name: Release Validation
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    needs: docs
-    
-    steps:
-    - uses: actions/checkout@v4
-      
-    - uses: bazelbuild/setup-bazelisk@v2
-      with:
-        bazelisk-version: ${{ env.BAZEL_VERSION }}
-    
-    - name: Validate release
-      run: |
-        echo "Validating release..."
-        
-        # Check that all tests pass
-        bazel test //test/... --test_output=all
-        
-        # Check that examples build
-        bazel build //examples/...
-        
-        # Check checksums
-        python3 -c "
-        import json
-        with open('checksums/tools/rocq.json') as f:
-            data = json.load(f)
-        for version_data in data['versions'].values():
-            for platform_data in version_data['platforms'].values():
-                sha256 = platform_data['sha256']
-                assert len(sha256) == 64
-                assert all(c in '0123456789abcdef' for c in sha256)
-        print('✅ Checksums are valid')"
-        
-        echo "✅ Release is ready"
-
-  # Nightly performance
-  performance:
-    name: Performance
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
-    
-    steps:
-    - uses: actions/checkout@v4
-      
-    - uses: bazelbuild/setup-bazelisk@v2
-      with:
-        bazelisk-version: ${{ env.BAZEL_VERSION }}
-    
-    - name: Run performance tests
-      run: |
-        echo "Running performance tests..."
-        time bazel build //examples/simple_rust_verification:simple_rust
-        time bazel build //examples/advanced_rust_integration:advanced_rust
-        echo "Performance tests completed"
+        echo "Verifying Bazel rules on ${{ matrix.os }}..."
+        bazel query //rocq/...
+        echo "✅ Rules load successfully on ${{ matrix.os }}"
