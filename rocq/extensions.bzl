@@ -4,6 +4,7 @@ Following the exact pattern established by rules_rust extensions.
 """
 
 load("@bazel_features//:features.bzl", "bazel_features")
+load("//toolchains:rocq_toolchain.bzl", "rocq_toolchain_repository")
 
 # Tag classes for Rocq toolchain configuration
 _RocqToolchainTag = tag_class(
@@ -28,13 +29,9 @@ _RocqToolchainTag = tag_class(
 # Rocq module extension implementation
 def _rocq_impl(module_ctx):
     """Implementation of Rocq toolchain extension.
-    
+
     This follows the exact pattern from rules_rust.
     """
-    
-    # Load the toolchain repository rule
-    load("//toolchains:rocq_toolchain.bzl", "rocq_toolchain_repository")
-    
     # Collect toolchain configurations from all modules
     toolchains = []
     for mod in module_ctx.modules:
