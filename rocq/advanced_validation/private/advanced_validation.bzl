@@ -985,6 +985,7 @@ rocq_advanced_validation = rule(
             doc = "Rocq compiler binary",
             default = "@rocq_toolchains//:coqc",
             executable = True,
+            cfg = "exec",
         ),
     },
     doc = "Perform advanced proof validation with multiple levels and detailed reporting",

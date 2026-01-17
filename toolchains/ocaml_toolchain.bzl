@@ -76,30 +76,35 @@ filegroup(
     name = "ocaml",
     srcs = ["bin/ocaml"],
     executable = True,
+            cfg = "exec",
 )
 
 filegroup(
     name = "ocamlc",
     srcs = ["bin/ocamlc"],
     executable = True,
+            cfg = "exec",
 )
 
 filegroup(
     name = "ocamlopt",
     srcs = ["bin/ocamlopt"],
     executable = True,
+            cfg = "exec",
 )
 
 filegroup(
     name = "ocamlrun",
     srcs = ["bin/ocamlrun"],
     executable = True,
+            cfg = "exec",
 )
 
 filegroup(
     name = "ocaml_tools",
     srcs = glob(["bin/ocaml*"]),
     executable = True,
+            cfg = "exec",
 )
 """
     )

@@ -82,6 +82,7 @@ filegroup(
     name = "test_tool",
     srcs = ["bin/test-tool"],
     executable = True,
+            cfg = "exec",
 )
 
 # Test library (simulated)

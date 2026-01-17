@@ -35,11 +35,13 @@ rocq_toolchain = rule(
             allow_single_file = True,
             executable = True,
             cfg = "exec",
+            cfg = "exec",
             doc = "Rocq binary",
         ),
         "coq_binary": attr.label(
             allow_single_file = True,
             executable = True,
+            cfg = "exec",
             cfg = "exec",
             doc = "Coq theorem prover binary",
         ),

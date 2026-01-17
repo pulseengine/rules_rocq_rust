@@ -210,30 +210,35 @@ filegroup(
     name = "coqc",
     srcs = ["bin/coqc"],
     executable = True,
+            cfg = "exec",
 )
 
 filegroup(
     name = "coqtop",
     srcs = ["bin/coqtop"],
     executable = True,
+            cfg = "exec",
 )
 
 filegroup(
     name = "coqide",
     srcs = ["bin/coqide"],
     executable = True,
+            cfg = "exec",
 )
 
 filegroup(
     name = "coqdoc",
     srcs = ["bin/coqdoc"],
     executable = True,
+            cfg = "exec",
 )
 
 filegroup(
     name = "coq_tools",
     srcs = glob(["bin/coq*"]),
     executable = True,
+            cfg = "exec",
 )
 """
     )
