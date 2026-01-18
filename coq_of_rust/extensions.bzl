@@ -4,8 +4,6 @@ Basic extension framework for coq-of-rust toolchain configuration.
 This will be enhanced as the implementation matures.
 """
 
-load("@bazel_features//:features.bzl", "bazel_features")
-
 # Basic tag class for coq-of-rust configuration
 _CoqOfRustToolchainTag = tag_class(
     doc = "Tags for defining coq-of-rust toolchains",
