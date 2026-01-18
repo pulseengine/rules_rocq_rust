@@ -1,288 +1,301 @@
-"""Rocq toolchain definitions with enhanced tool management
+"""Rocq toolchain definitions for hermetic Coq/Rocq builds.
 
-Following the exact pattern established by rules_wasm_component.
+This module provides repository rules for downloading and setting up
+the Rocq (Coq) toolchain for use with Bazel.
 """
 
-load("//checksums:registry.bzl", "get_tool_info", "get_tool_checksum")
-load("//:toolchains/tool_registry.bzl", "detect_platform", "download_and_verify")
-load("@bazel_skylib//lib:native.bzl", "native")
+load("//toolchains:tool_registry.bzl", "detect_platform", "download_and_verify")
 
-# Rocq Toolchain Implementation
+# =============================================================================
+# Rocq Toolchain Repository Implementation
+# =============================================================================
+
 def _rocq_toolchain_repository_impl(repository_ctx):
     """Create Rocq toolchain repository.
-    
-    This is the main implementation following rules_rust patterns.
-    Always uses hermetic downloads for reproducibility.
+
+    Downloads the Rocq Platform and extracts binaries for use in builds.
     """
-    
-    strategy = repository_ctx.attr.strategy
-    platform = detect_platform(repository_ctx)
     version = repository_ctx.attr.version
-    
-    print("Setting up Rocq toolchain {} for platform {} using strategy {}".format(
-        version, platform, strategy
-    ))
-    
-    # Only support download strategy for hermeticity
-    if strategy == "download":
-        _setup_downloaded_rocq_tools(repository_ctx)
-    else:
-        fail("Unknown strategy: {}. Must be 'download' (only hermetic downloads supported)".format(strategy))
-    
-    # Create BUILD files
-    _create_build_files(repository_ctx)
-
-def _setup_downloaded_rocq_tools(repository_ctx):
-    """Download prebuilt Rocq tools."""
-    
     platform = detect_platform(repository_ctx)
-    version = repository_ctx.attr.version
-    
-    # Download Rocq toolchain
-    rocq_tool_path = download_and_verify(
-        repository_ctx, "rocq", version, platform
-    )
-    
-    # Extract the toolchain with enhanced error handling
-    if rocq_tool_path.endswith(".tar.gz") or rocq_tool_path.endswith(".tar.xz"):
-        print("Extracting Rocq toolchain from: {}".format(rocq_tool_path))
-        repository_ctx.execute([
-            "tar", "-xzf", rocq_tool_path, "-C", repository_ctx.expand_location("{{name}}")
-        ])
-        
-        # Enhanced binary discovery with multiple patterns
-        rocq_bin_dirs = [
-            native.path.join(repository_ctx.expand_location("{{name}}"), "bin"),
-            native.path.join(repository_ctx.expand_location("{{name}}"), "Coq Platform.app", "Contents", "Resources", "bin"),
-            native.path.join(repository_ctx.expand_location("{{name}}"), "Coq-Platform-release-*", "bin"),
-        ]
-        
-        binaries_found = []
-        for bin_dir in rocq_bin_dirs:
-            if native.path.exists(bin_dir):
-                for bin_file in ["coqc", "coqtop", "coqide", "coqdoc"]:
-                    src = native.path.join(bin_dir, bin_file)
-                    if native.path.exists(src):
-                        dst = repository_ctx.path("bin", bin_file)
-                        repository_ctx.execute(["cp", src, dst])
-                        repository_ctx.execute(["chmod", "+x", dst])
-                        binaries_found.append(bin_file)
-                        print("Found and copied: {}".format(bin_file))
-        
-        if not binaries_found:
-            print("Warning: No Rocq binaries found in extracted archive")
-            print("Attempting recursive search for coq* binaries...")
-            
-            # Recursive search for any coq* binaries
-            find_result = repository_ctx.execute([
-                "find", repository_ctx.expand_location("{{name}}"), 
-                "-name", "coq*", 
-                "-type", "f", 
-                "-executable"
-            ])
-            
-            if find_result.return_code == 0 and find_result.stdout:
-                for found_file in find_result.stdout.strip().split('\n'):
-                    if found_file:
-                        bin_name = native.path.basename(found_file)
-                        dst = repository_ctx.path("bin", bin_name)
-                        repository_ctx.execute(["cp", found_file, dst])
-                        repository_ctx.execute(["chmod", "+x", dst])
-                        binaries_found.append(bin_name)
-                        print("Found via recursive search: {}".format(bin_name))
-            else:
-                fail("No Rocq binaries found in downloaded archive. The archive structure may have changed.")
-    elif rocq_tool_path.endswith(".dmg"):
-        # macOS DMG extraction
-        print("Extracting macOS DMG: {}".format(rocq_tool_path))
-        mount_point = repository_ctx.expand_location("{{name}}/dmg_mount")
-        repository_ctx.execute(["mkdir", "-p", mount_point])
-        
-        # Mount DMG and copy contents
-        repository_ctx.execute([
-            "hdiutil", "attach", "-mountpoint", mount_point, rocq_tool_path
-        ])
-        
-        # Copy binaries from DMG
-        dmg_bin_dir = native.path.join(mount_point, "Coq Platform.app", "Contents", "Resources", "bin")
-        if native.path.exists(dmg_bin_dir):
-            for bin_file in ["coqc", "coqtop", "coqide", "coqdoc"]:
-                src = native.path.join(dmg_bin_dir, bin_file)
-                if native.path.exists(src):
-                    dst = repository_ctx.path("bin", bin_file)
-                    repository_ctx.execute(["cp", src, dst])
-                    repository_ctx.execute(["chmod", "+x", dst])
-                    print("Found and copied from DMG: {}".format(bin_file))
-        
-        # Unmount DMG
-        repository_ctx.execute(["hdiutil", "detach", mount_point])
-     elif rocq_tool_path.endswith(".exe"):
-        # Windows EXE extraction using 7zip
-        print("Windows EXE installer detected: {}".format(rocq_tool_path))
-        
-        # Try to extract using 7zip if available
-        try:
-            # Check if 7zip is available
-            seven_zip = repository_ctx.which("7z")
-            if seven_zip:
-                print("Extracting Windows EXE using 7zip: {}".format(seven_zip))
-                repository_ctx.execute([
-                    str(seven_zip), "x", rocq_tool_path, 
-                    "-o" + repository_ctx.expand_location("{{name}}")
-                ])
-                
-                # Look for extracted binaries
-                extracted_dir = repository_ctx.expand_location("{{name}}")
-                for bin_file in ["coqc.exe", "coqtop.exe", "coqide.exe", "coqdoc.exe"]:
-                    src = native.path.join(extracted_dir, bin_file)
-                    if native.path.exists(src):
-                        dst = repository_ctx.path("bin", bin_file)
-                        repository_ctx.execute(["cp", src, dst])
-                        repository_ctx.execute(["chmod", "+x", dst])
-                        print("Found and copied: {}".format(bin_file))
-            else:
-                print("Warning: 7zip not found for Windows EXE extraction")
-                fail("Windows EXE extraction requires 7zip (7z) tool to be available in PATH")
-        except Exception as e:
-            fail("Windows EXE extraction failed: {}. Ensure 7zip is installed and available.".format(str(e)))
+
+    print("Setting up Rocq toolchain {} for platform {}".format(version, platform))
+
+    # Check if platform is supported
+    supported = ["darwin_arm64", "windows_amd64"]
+    if platform not in supported:
+        # Create stub repository for unsupported platforms
+        print("WARNING: Rocq Platform binaries not available for {}".format(platform))
+        print("Supported platforms: {}".format(", ".join(supported)))
+        print("Creating stub toolchain - proofs will not compile")
+        _create_stub_repository(repository_ctx)
+        return
+
+    # Download the toolchain
+    tool_path = download_and_verify(repository_ctx, "rocq", version, platform)
+    print("Downloaded toolchain to: {}".format(tool_path))
+
+    # Extract based on format
+    if tool_path.endswith(".dmg"):
+        _extract_dmg(repository_ctx, tool_path)
+    elif tool_path.endswith(".tar.gz"):
+        _extract_tar_gz(repository_ctx, tool_path)
+    elif tool_path.endswith(".exe"):
+        _extract_windows_exe(repository_ctx, tool_path)
     else:
-        fail("Unsupported archive format: {}".format(rocq_tool_path))
-    
-    # Extract libraries and standard files
-    _extract_rocq_libraries(repository_ctx)
+        fail("Unsupported archive format: {}".format(tool_path))
 
-def _extract_rocq_libraries(repository_ctx):
-    """Extract Rocq libraries and standard files."""
-    
-    print("Extracting Rocq libraries and standard files...")
-    
-    # Library discovery patterns
-    lib_dirs = [
-        native.path.join(repository_ctx.expand_location("{{name}}"), "lib"),
-        native.path.join(repository_ctx.expand_location("{{name}}"), "Coq Platform.app", "Contents", "Resources", "lib"),
-        native.path.join(repository_ctx.expand_location("{{name}}"), "Coq-Platform-release-*", "lib"),
-        native.path.join(repository_ctx.expand_location("{{name}}"), "share", "coq"),
-    ]
-    
-    # Copy libraries
-    repository_ctx.execute(["mkdir", "-p", "lib"])
-    
-    for lib_dir in lib_dirs:
-        if native.path.exists(lib_dir):
-            print("Copying libraries from: {}".format(lib_dir))
-            repository_ctx.execute([
-                "cp", "-r", lib_dir, "lib/"
-            ])
-            break
-    
-    # Verify we have the standard library
-    stdlib_check = repository_ctx.path("lib/coq/theories")
-    if not stdlib_check.exists:
-        print("Warning: Standard library not found in expected location")
-        print("Attempting recursive search for Coq libraries...")
-        
-        # Recursive search for Coq libraries
-        find_result = repository_ctx.execute([
-            "find", repository_ctx.expand_location("{{name}}"), 
-            "-name", "*coq*", 
-            "-type", "d"
-        ])
-        
-        if find_result.return_code == 0 and find_result.stdout:
-            for found_dir in find_result.stdout.strip().split('\n'):
-                if found_dir and "theories" in found_dir:
-                    repository_ctx.execute([
-                        "cp", "-r", found_dir, "lib/"
-                    ])
-                    print("Found and copied library: {}".format(found_dir))
-                    break
+    # Create BUILD file
+    _create_build_file(repository_ctx)
 
-def _create_build_files(repository_ctx):
-    """Create BUILD files for Rocq toolchain."""
-    
-    # Create main BUILD.bazel file
-    repository_ctx.file(
-        "BUILD.bazel",
-        """
-# Rocq toolchain
+def _create_stub_repository(repository_ctx):
+    """Create a stub repository for unsupported platforms."""
+    repository_ctx.file("BUILD.bazel", """
+# Stub Rocq toolchain for unsupported platform
+# Proofs will not compile - use a supported platform or install Coq manually
 
 filegroup(
     name = "coqc",
-    srcs = ["bin/coqc"],
-    executable = True,
-            cfg = "exec",
-)
-
-filegroup(
-    name = "coqtop",
-    srcs = ["bin/coqtop"],
-    executable = True,
-            cfg = "exec",
-)
-
-filegroup(
-    name = "coqide",
-    srcs = ["bin/coqide"],
-    executable = True,
-            cfg = "exec",
-)
-
-filegroup(
-    name = "coqdoc",
-    srcs = ["bin/coqdoc"],
-    executable = True,
-            cfg = "exec",
+    srcs = [],
+    visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "coq_tools",
-    srcs = glob(["bin/coq*"]),
-    executable = True,
-            cfg = "exec",
+    srcs = [],
+    visibility = ["//visibility:public"],
 )
-"""
-    )
-    
-    # Add library filegroups
-    repository_ctx.append(
-        "BUILD.bazel",
-        """
 
-# Standard library
 filegroup(
     name = "stdlib",
-    srcs = glob(["lib/**/*.vo", "lib/**/*.cmxs", "lib/**/*.so", "lib/**/*.dylib"]),
+    srcs = [],
+    visibility = ["//visibility:public"],
+)
+""")
+    repository_ctx.file("WORKSPACE.bazel", 'workspace(name = "{}")'.format(repository_ctx.name))
+
+def _extract_dmg(repository_ctx, dmg_path):
+    """Extract Coq tools from macOS DMG."""
+    print("Extracting macOS DMG: {}".format(dmg_path))
+
+    # Create directories
+    repository_ctx.execute(["mkdir", "-p", "bin", "lib"])
+
+    # Mount DMG
+    mount_point = "dmg_mount"
+    repository_ctx.execute(["mkdir", "-p", mount_point])
+
+    mount_result = repository_ctx.execute([
+        "hdiutil", "attach", "-mountpoint", mount_point, "-nobrowse", dmg_path,
+    ])
+
+    if mount_result.return_code != 0:
+        fail("Failed to mount DMG: {}".format(mount_result.stderr))
+
+    # Find and copy binaries
+    # Coq Platform structure: "Coq-Platform*.app/Contents/Resources/bin/"
+    find_result = repository_ctx.execute([
+        "find", mount_point, "-type", "f", "-name", "coqc",
+    ])
+
+    if find_result.return_code == 0 and find_result.stdout.strip():
+        coqc_path = find_result.stdout.strip().split("\n")[0]
+        bin_dir = coqc_path.rsplit("/", 1)[0]
+
+        # Copy all binaries
+        for binary in ["coqc", "coqtop", "coqdoc", "coqchk", "coq_makefile"]:
+            src = "{}/{}".format(bin_dir, binary)
+            dst = "bin/{}".format(binary)
+            cp_result = repository_ctx.execute(["cp", src, dst])
+            if cp_result.return_code == 0:
+                repository_ctx.execute(["chmod", "+x", dst])
+                print("Copied: {}".format(binary))
+
+        # Copy libraries (find lib/coq or similar)
+        lib_result = repository_ctx.execute([
+            "find", mount_point, "-type", "d", "-name", "coq", "-path", "*/lib/*",
+        ])
+        if lib_result.return_code == 0 and lib_result.stdout.strip():
+            lib_path = lib_result.stdout.strip().split("\n")[0]
+            repository_ctx.execute(["cp", "-r", lib_path, "lib/"])
+            print("Copied Coq libraries")
+    else:
+        print("WARNING: Could not find coqc in DMG")
+
+    # Unmount DMG
+    repository_ctx.execute(["hdiutil", "detach", mount_point, "-force"])
+    repository_ctx.execute(["rm", "-rf", mount_point])
+
+def _extract_tar_gz(repository_ctx, tar_path):
+    """Extract Coq tools from tar.gz archive."""
+    print("Extracting tar.gz: {}".format(tar_path))
+
+    # Create directories
+    repository_ctx.execute(["mkdir", "-p", "bin", "lib", "extracted"])
+
+    # Extract archive
+    extract_result = repository_ctx.execute([
+        "tar", "-xzf", tar_path, "-C", "extracted",
+    ])
+
+    if extract_result.return_code != 0:
+        fail("Failed to extract tar.gz: {}".format(extract_result.stderr))
+
+    # Find and copy binaries
+    find_result = repository_ctx.execute([
+        "find", "extracted", "-type", "f", "-name", "coqc",
+    ])
+
+    if find_result.return_code == 0 and find_result.stdout.strip():
+        coqc_path = find_result.stdout.strip().split("\n")[0]
+        bin_dir = coqc_path.rsplit("/", 1)[0]
+
+        # Copy all binaries
+        for binary in ["coqc", "coqtop", "coqdoc", "coqchk", "coq_makefile"]:
+            src = "{}/{}".format(bin_dir, binary)
+            dst = "bin/{}".format(binary)
+            cp_result = repository_ctx.execute(["cp", src, dst])
+            if cp_result.return_code == 0:
+                repository_ctx.execute(["chmod", "+x", dst])
+                print("Copied: {}".format(binary))
+
+        # Copy libraries
+        lib_result = repository_ctx.execute([
+            "find", "extracted", "-type", "d", "-name", "coq", "-path", "*/lib/*",
+        ])
+        if lib_result.return_code == 0 and lib_result.stdout.strip():
+            lib_path = lib_result.stdout.strip().split("\n")[0]
+            repository_ctx.execute(["cp", "-r", lib_path, "lib/"])
+            print("Copied Coq libraries")
+    else:
+        print("WARNING: Could not find coqc in archive")
+
+    # Clean up extracted directory
+    repository_ctx.execute(["rm", "-rf", "extracted"])
+
+def _extract_windows_exe(repository_ctx, exe_path):
+    """Extract Coq tools from Windows installer."""
+    print("Windows installer: {}".format(exe_path))
+
+    # Create directories
+    repository_ctx.execute(["mkdir", "-p", "bin", "lib"])
+
+    # Try to extract with 7z if available
+    seven_zip = repository_ctx.which("7z")
+    if seven_zip:
+        repository_ctx.execute(["mkdir", "-p", "extracted"])
+        extract_result = repository_ctx.execute([
+            str(seven_zip), "x", exe_path, "-oextracted", "-y",
+        ])
+
+        if extract_result.return_code == 0:
+            # Find and copy binaries
+            find_result = repository_ctx.execute([
+                "find", "extracted", "-type", "f", "-name", "coqc.exe",
+            ])
+
+            if find_result.return_code == 0 and find_result.stdout.strip():
+                coqc_path = find_result.stdout.strip().split("\n")[0]
+                bin_dir = coqc_path.rsplit("/", 1)[0]
+
+                # Copy all binaries
+                for binary in ["coqc.exe", "coqtop.exe", "coqdoc.exe", "coqchk.exe"]:
+                    src = "{}/{}".format(bin_dir, binary)
+                    dst = "bin/{}".format(binary)
+                    repository_ctx.execute(["cp", src, dst])
+                    print("Copied: {}".format(binary))
+
+        repository_ctx.execute(["rm", "-rf", "extracted"])
+    else:
+        print("WARNING: 7z not available for Windows installer extraction")
+        print("Install 7-Zip and ensure 7z is in PATH")
+
+def _create_build_file(repository_ctx):
+    """Create BUILD file for Rocq toolchain."""
+    repository_ctx.file("BUILD.bazel", """
+# Rocq/Coq toolchain
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "coqc",
+    srcs = glob(["bin/coqc*"]),
 )
 
-# Coq theories
+filegroup(
+    name = "coqtop",
+    srcs = glob(["bin/coqtop*"]),
+)
+
+filegroup(
+    name = "coqdoc",
+    srcs = glob(["bin/coqdoc*"]),
+)
+
+filegroup(
+    name = "coq_tools",
+    srcs = glob(["bin/*"]),
+)
+
+filegroup(
+    name = "stdlib",
+    srcs = glob(["lib/**/*.vo", "lib/**/*.glob"]),
+)
+
 filegroup(
     name = "coq_theories",
-    srcs = glob(["lib/**/*.v", "lib/**/*.glob"]),
+    srcs = glob(["lib/**/*.v"]),
 )
 
-# Complete libraries
 filegroup(
     name = "coq_libraries",
     srcs = glob(["lib/**/*"]),
 )
-"""
-    )
 
-# Rocq toolchain repository rule
-def rocq_toolchain_repository(name, version, strategy="download"):
+# Toolchain target for register_toolchains
+toolchain(
+    name = "rocq_toolchain",
+    toolchain = ":coq_tools",
+    toolchain_type = "@rules_rocq_rust//rocq:toolchain_type",
+)
+
+# Export all toolchains
+alias(
+    name = "all",
+    actual = ":rocq_toolchain",
+)
+""")
+
+    repository_ctx.file("WORKSPACE.bazel", 'workspace(name = "{}")'.format(repository_ctx.name))
+
+# =============================================================================
+# Repository Rule Definition
+# =============================================================================
+
+_rocq_toolchain_repository = repository_rule(
+    implementation = _rocq_toolchain_repository_impl,
+    attrs = {
+        "version": attr.string(
+            default = "2025.01.0",
+            doc = "Rocq Platform version to download",
+        ),
+        "strategy": attr.string(
+            default = "download",
+            doc = "Acquisition strategy (currently only 'download' supported)",
+            values = ["download"],
+        ),
+    },
+    doc = "Download and configure Rocq/Coq toolchain",
+)
+
+def rocq_toolchain_repository(name, version = "2025.01.0", strategy = "download"):
     """Create a Rocq toolchain repository.
-    
+
     Args:
         name: Name for the repository
-        version: Rocq version to download
-        strategy: Acquisition strategy ('download' or 'system')
+        version: Rocq Platform version to download
+        strategy: Acquisition strategy ('download' only for now)
     """
-    native.repository_rule(
+    _rocq_toolchain_repository(
         name = name,
-        implementation = _rocq_toolchain_repository_impl,
-        attrs = {
-            "version": attr.string(default = version),
-            "strategy": attr.string(default = "download"),
-        },
+        version = version,
+        strategy = strategy,
     )
-
