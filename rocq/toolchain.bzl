@@ -1,34 +1,60 @@
 """Rocq toolchain definitions.
 
-This file provides the rocq_stdlib_filegroup rule for managing Rocq standard library files,
-following the exact pattern established by rules_rust.
+This file provides toolchain info provider and rules for Rocq/Coq compilation.
 """
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
-# Rocq standard library filegroup
-# This follows the exact pattern from rules_rust's rust_stdlib_filegroup
-def _rocq_stdlib_filegroup_impl(ctx):
-    """Implementation for Rocq standard library filegroup."""
-    # This is a simple filegroup for now
-    # In a full implementation, this would handle standard library discovery
-    # and platform-specific libraries
-    pass
-
-rocq_stdlib_filegroup = rule(
-    implementation = _rocq_stdlib_filegroup_impl,
-    attrs = {
-        "srcs": attr.label_list(
-            allow_files = True,
-            doc = "Rocq standard library files",
-        ),
+# Toolchain info provider - used by rocq_library to find coqc
+RocqToolchainInfo = provider(
+    doc = "Information about the Rocq/Coq toolchain",
+    fields = {
+        "coqc": "File for the coqc compiler",
+        "coq_tools": "depset of all Coq tool binaries",
+        "stdlib": "depset of standard library .vo files",
     },
-    doc = "Creates a filegroup for Rocq standard library files",
 )
 
-# Additional toolchain-related functions can be added here
-# as the implementation matures
+def _rocq_toolchain_info_impl(ctx):
+    """Create a RocqToolchainInfo provider for use with Bazel toolchains."""
+    coqc_files = ctx.files.coqc
+    coqc = coqc_files[0] if coqc_files else None
 
+    toolchain_info = RocqToolchainInfo(
+        coqc = coqc,
+        coq_tools = depset(ctx.files.coq_tools),
+        stdlib = depset(ctx.files.stdlib),
+    )
+
+    return [
+        platform_common.ToolchainInfo(
+            rocq_info = toolchain_info,
+        ),
+        DefaultInfo(
+            files = depset(ctx.files.coq_tools),
+        ),
+    ]
+
+rocq_toolchain_info = rule(
+    implementation = _rocq_toolchain_info_impl,
+    attrs = {
+        "coqc": attr.label(
+            allow_files = True,
+            doc = "The coqc compiler binary",
+        ),
+        "coq_tools": attr.label(
+            allow_files = True,
+            doc = "All Coq tool binaries",
+        ),
+        "stdlib": attr.label(
+            allow_files = True,
+            doc = "Coq standard library files",
+        ),
+    },
+    doc = "Provides Rocq toolchain information for compilation rules",
+)
+
+# Rocq standard library filegroup helper
 def rocq_stdlib_filegroup(name, srcs = None, **kwargs):
     """Helper function to create standard library filegroups."""
     native.filegroup(
