@@ -1,7 +1,7 @@
 """Bazel Module for Rocq and coq-of-rust Rules
 
-This module provides Bazel rules for Rocq theorem proving and coq-of-rust integration.
-Following the patterns established by rules_rust and rules_wasm_component.
+This module provides Bazel rules for Rocq/Coq theorem proving.
+Uses nixpkgs for hermetic Coq toolchain installation.
 """
 
 module(
@@ -10,64 +10,38 @@ module(
     compatibility_level = 1,
 )
 
-# Core dependencies following rules_rust patterns
-bazel_dep(name = "rules_rust", version = "0.68.1")
-bazel_dep(name = "rules_cc", version = "0.2.14")
+# Core dependencies
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "platforms", version = "1.0.0")
 
+# Nix integration for hermetic Coq/Rocq toolchain
+bazel_dep(name = "rules_nixpkgs_core", version = "0.13.0")
+
+# Configure nixpkgs repository for Coq/Rocq toolchain
+nix_repo = use_extension(
+    "@rules_nixpkgs_core//extensions:repository.bzl",
+    "nix_repo",
+)
+nix_repo.github(
+    name = "nixpkgs",
+    org = "NixOS",
+    repo = "nixpkgs",
+    # nixos-24.11 stable channel
+    commit = "d4f247e89f6e10120f911e2e2d2254a050d0f732",
+    sha256 = "dee2f93be38d1a63ee9b731fa993f0ac2c60c3a62cca32d4cc64c2ed5b8a8e06",
+)
+use_repo(nix_repo, "nixpkgs")
+
 # Development dependencies
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
-bazel_dep(name = "stardoc", version = "0.7.2", dev_dependency = True)
 
-# Rocq toolchain extension (Bazel 8 symbolic macro pattern)
+# Rocq toolchain extension - uses nixpkgs for hermetic Coq
 rocq = use_extension("//rocq:extensions.bzl", "rocq")
 rocq.toolchain(
-    version = "2025.01.0",
-    strategy = "download",
-    editions = ["2021"],  # Coq/Rocq edition compatibility
+    version = "8.20",  # Coq version from nixpkgs
+    strategy = "nix",   # Hermetic nix-based installation
 )
 use_repo(rocq, "rocq_toolchains")
 
-# Optional OCaml toolchain for QuickChick support
-# Only enable this if you need QuickChick or other OCaml-based plugins
-ocaml = use_extension("//toolchains:ocaml_extensions.bzl", "ocaml")
-ocaml.toolchain(
-    version = "5.1.1",
-    strategy = "download",  # only hermetic downloads supported
-)
-use_repo(ocaml, "ocaml_toolchains")
-
-# coq-of-rust toolchain extension
-# Now properly implemented as a buildable toolchain
-coq_of_rust = use_extension("//coq_of_rust:extensions.bzl", "coq_of_rust")
-coq_of_rust.toolchain(
-    version = "0.5.0",
-    strategy = "build",  # coq-of-rust must be built from source
-)
-use_repo(coq_of_rust, "coq_of_rust_toolchains")
-
-# Register toolchains for target platform resolution
-register_toolchains(
-    "@rocq_toolchains//:rocq_toolchain",
-    "@coq_of_rust_toolchains//:coq_of_rust_toolchain",
-)
-
-# Rust toolchain setup for coq-of-rust integration
-rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
-rust.toolchain(
-    edition = "2021",
-    extra_target_triples = [
-        "x86_64-unknown-linux-gnu",
-        "aarch64-unknown-linux-gnu",
-        "x86_64-apple-darwin",
-        "aarch64-apple-darwin",
-    ],
-    versions = ["1.91.1"],
-)
-use_repo(rust, "rust_toolchains")
-
-register_toolchains("@rust_toolchains//:all")
-
-# Register default C++ toolchains for any C++ dependencies
-register_toolchains("@bazel_tools//tools/cpp:all")
+# Register Rocq toolchain
+register_toolchains("@rocq_toolchains//:all")

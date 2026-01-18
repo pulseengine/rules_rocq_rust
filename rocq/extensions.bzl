@@ -1,76 +1,58 @@
 """Module extensions for using rules_rocq with bzlmod.
 
-Following the exact pattern established by rules_rust extensions.
+Provides Rocq/Coq toolchain setup using nixpkgs for hermetic builds.
 """
 
-load("//toolchains:rocq_toolchain.bzl", "rocq_toolchain_repository")
+load("//toolchains:rocq_nix_toolchain.bzl", "rocq_nix_toolchain_repository")
 
 # Tag classes for Rocq toolchain configuration
 _RocqToolchainTag = tag_class(
     doc = "Tags for defining Rocq toolchains",
     attrs = {
         "version": attr.string(
-            doc = "Rocq version to use",
-            default = "2025.01.0",
+            doc = "Coq version to use (e.g., '8.20', '8.19')",
+            default = "8.20",
         ),
         "strategy": attr.string(
-            doc = "Tool acquisition strategy",
-            default = "download",
-            values = ["download"],
+            doc = "Tool acquisition strategy: 'nix' for hermetic nixpkgs",
+            default = "nix",
+            values = ["nix"],
         ),
-        "editions": attr.string_list(
-            doc = "Supported Coq/Rocq editions",
-            default = ["2021"],
-        ),
-    }
+    },
 )
 
 # Rocq module extension implementation
 def _rocq_impl(module_ctx):
     """Implementation of Rocq toolchain extension.
 
-    This follows the exact pattern from rules_rust.
+    Uses nixpkgs to provide hermetic Coq installation.
     """
     # Collect toolchain configurations from all modules
     toolchains = []
     for mod in module_ctx.modules:
         for toolchain in mod.tags.toolchain:
             toolchains.append(toolchain)
-    
-    # Use the first toolchain configuration (following rules_rust pattern)
+
+    # Use the first toolchain configuration
     if toolchains:
         config = toolchains[0]
-        
-        # Create toolchain repository using our repository rule
-        rocq_toolchain_repository(
-            name = "rocq_toolchains",
-            version = config.version,
-            strategy = config.strategy,
-        )
+        coq_version = config.version
     else:
         # Default configuration
-        rocq_toolchain_repository(
-            name = "rocq_toolchains",
-            version = "2025.01.0",
-            strategy = "download",
-        )
-    
+        coq_version = "8.20"
+
+    # Create nix-based toolchain repository
+    rocq_nix_toolchain_repository(
+        name = "rocq_toolchains",
+        coq_version = coq_version,
+    )
+
     # Return extension metadata (reproducible for caching)
     return module_ctx.extension_metadata(reproducible = True)
 
-# Empty repository helper (from rules_rust) for fallback
-def _empty_repository_impl(repository_ctx):
-    repository_ctx.file("WORKSPACE.bazel", 'workspace(name = "{}")'.format(repository_ctx.name))
-    repository_ctx.file("BUILD.bazel", "")
-
-_empty_repository = repository_rule(
-    doc = "Declare an empty repository.",
-    implementation = _empty_repository_impl,
-)
-
 # Rocq module extension
 rocq = module_extension(
-    doc = "Rocq toolchain extension.",
+    doc = "Rocq/Coq toolchain extension using nixpkgs.",
     implementation = _rocq_impl,
     tag_classes = {
         "toolchain": _RocqToolchainTag,
