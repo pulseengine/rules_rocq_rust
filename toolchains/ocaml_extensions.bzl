@@ -4,8 +4,7 @@ This provides OCaml toolchain setup for users who need QuickChick
 or other OCaml-based Coq plugins.
 """
 
-load("@bazel_features//:features.bzl", "bazel_features")
-load("//:toolchains/ocaml_toolchain.bzl", "ocaml_toolchain_repository")
+load("//toolchains:ocaml_toolchain.bzl", "ocaml_toolchain_repository")
 
 # Tag classes for OCaml toolchain configuration
 _OcamlToolchainTag = tag_class(
@@ -51,12 +50,8 @@ def _ocaml_impl(module_ctx):
             strategy = "download",
         )
     
-    # Return extension metadata
-    metadata_kwargs = {}
-    if bazel_features.external_deps.extension_metadata_has_reproducible:
-        metadata_kwargs["reproducible"] = True
-    
-    return module_ctx.extension_metadata(**metadata_kwargs)
+    # Return extension metadata (reproducible for caching)
+    return module_ctx.extension_metadata(reproducible = True)
 
 # OCaml module extension
 ocaml = module_extension(
