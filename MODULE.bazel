@@ -2,6 +2,8 @@
 
 This module provides Bazel rules for Rocq/Coq theorem proving.
 Uses nixpkgs for hermetic Coq toolchain installation.
+
+NOTE: The root module must configure nixpkgs - see README.md
 """
 
 module(
@@ -15,22 +17,8 @@ bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "platforms", version = "1.0.0")
 
 # Nix integration for hermetic Coq/Rocq toolchain
+# NOTE: The root module must configure nixpkgs repository
 bazel_dep(name = "rules_nixpkgs_core", version = "0.13.0")
-
-# Configure nixpkgs repository for Coq/Rocq toolchain
-nix_repo = use_extension(
-    "@rules_nixpkgs_core//extensions:repository.bzl",
-    "nix_repo",
-)
-nix_repo.github(
-    name = "nixpkgs",
-    org = "NixOS",
-    repo = "nixpkgs",
-    # nixos-24.11 stable channel
-    commit = "d4f247e89f6e10120f911e2e2d2254a050d0f732",
-    sha256 = "dee2f93be38d1a63ee9b731fa993f0ac2c60c3a62cca32d4cc64c2ed5b8a8e06",
-)
-use_repo(nix_repo, "nixpkgs")
 
 # Development dependencies
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
