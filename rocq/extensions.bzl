@@ -3,7 +3,6 @@
 Following the exact pattern established by rules_rust extensions.
 """
 
-load("@bazel_features//:features.bzl", "bazel_features")
 load("//toolchains:rocq_toolchain.bzl", "rocq_toolchain_repository")
 
 # Tag classes for Rocq toolchain configuration
@@ -56,12 +55,8 @@ def _rocq_impl(module_ctx):
             strategy = "download",
         )
     
-    # Return extension metadata
-    metadata_kwargs = {}
-    if bazel_features.external_deps.extension_metadata_has_reproducible:
-        metadata_kwargs["reproducible"] = True
-    
-    return module_ctx.extension_metadata(**metadata_kwargs)
+    # Return extension metadata (reproducible for caching)
+    return module_ctx.extension_metadata(reproducible = True)
 
 # Empty repository helper (from rules_rust) for fallback
 def _empty_repository_impl(repository_ctx):
