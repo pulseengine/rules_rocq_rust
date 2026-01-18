@@ -51,30 +51,14 @@ def _get_coq_attr(version):
 
 # BUILD file content for the nixpkgs_package
 _COQ_BUILD_FILE = '''
+load("@rules_rocq_rust//rocq:toolchain.bzl", "rocq_toolchain_info")
+
 package(default_visibility = ["//visibility:public"])
 
-# Coq compiler
+# Coq compiler - the main binary we need
 filegroup(
-    name = "coqc",
+    name = "coqc_bin",
     srcs = glob(["bin/coqc"]),
-)
-
-# Coq top-level
-filegroup(
-    name = "coqtop",
-    srcs = glob(["bin/coqtop"]),
-)
-
-# Coq documentation generator
-filegroup(
-    name = "coqdoc",
-    srcs = glob(["bin/coqdoc"]),
-)
-
-# Coq checker
-filegroup(
-    name = "coqchk",
-    srcs = glob(["bin/coqchk"]),
 )
 
 # All Coq binaries
@@ -104,10 +88,19 @@ filegroup(
     srcs = glob(["lib/coq/**/*"]),
 )
 
-# Toolchain target
+# Toolchain info wrapper - provides the coqc executable
+# This is what the toolchain rule expects
+rocq_toolchain_info(
+    name = "rocq_toolchain_info",
+    coqc = ":coqc_bin",
+    coq_tools = ":coq_tools",
+    stdlib = ":stdlib",
+)
+
+# Register as toolchain
 toolchain(
     name = "rocq_toolchain",
-    toolchain = ":coq_tools",
+    toolchain = ":rocq_toolchain_info",
     toolchain_type = "@rules_rocq_rust//rocq:toolchain_type",
 )
 
