@@ -1,8 +1,5 @@
-# BUILD.bazel for coq_of_rust package
-# Required for Bzlmod compatibility
+# coq_of_rust rules package
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(
-    srcs = glob(["*.bzl"]),
-)
+toolchain_type(name = "toolchain_type")

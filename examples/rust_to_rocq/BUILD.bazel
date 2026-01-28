@@ -1,0 +1,53 @@
+# Example: Translating Rust to Rocq for formal verification
+#
+# This example demonstrates the rocq-of-rust integration, showing how to
+# translate Rust code into Rocq and compile it for formal verification.
+
+load("@rules_rocq_rust//coq_of_rust:defs.bzl", "coq_of_rust_library", "rocq_rust_verified_library")
+load("@rules_rocq_rust//rocq:defs.bzl", "rocq_library")
+
+# RocqOfRust library - provides the core types needed by translated code
+#
+# For real library mode with coqutil/hammer/smpl, use the pre-compiled library
+# from the repository which handles compilation ordering correctly.
+alias(
+    name = "rocq_of_rust_lib",
+    actual = "@rocq_of_rust_source//:rocq_of_rust_main",
+)
+
+# Method 1: Step-by-step translation and compilation
+# -------------------------------------------------
+
+# Step 1: Translate Rust to Rocq
+# This generates point.v from point.rs
+coq_of_rust_library(
+    name = "point_translated",
+    rust_sources = ["point.rs"],
+    edition = "2021",
+)
+
+# Step 2: Compile the translated Rocq code
+# This compiles point.v to point.vo
+rocq_library(
+    name = "point_compiled",
+    srcs = [":point_translated"],
+    deps = [":rocq_of_rust_lib"],
+    extra_flags = ["-impredicative-set"],
+)
+
+# Method 2: Convenience macro (recommended)
+# -----------------------------------------
+
+# Single target that does both translation and compilation
+# rocq_rust_verified_library(
+#     name = "point_verified",
+#     rust_sources = ["point.rs"],
+#     edition = "2021",
+# )
+
+# You can also add proofs that depend on the translated code
+# rocq_library(
+#     name = "point_proofs",
+#     srcs = ["point_proofs.v"],  # Your manual proofs
+#     deps = [":point_compiled"],
+# )

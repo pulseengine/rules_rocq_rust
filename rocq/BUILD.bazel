@@ -1,13 +1,5 @@
-# BUILD.bazel for rocq package
-# Required for Bzlmod compatibility - every directory with .bzl files needs a BUILD file
+# Rocq rules package
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(
-    srcs = glob(["*.bzl"]),
-)
-
-# Toolchain type for Rocq/Coq
-toolchain_type(
-    name = "toolchain_type",
-)
+toolchain_type(name = "toolchain_type")

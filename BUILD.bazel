@@ -1,0 +1,11 @@
+# Root BUILD file for rules_rocq_rust
+# Required for bzlmod compatibility
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files(
+    srcs = glob(["*.bzl"], allow_empty = True),
+    visibility = ["//visibility:public"],
+)
+# Note: rules_rust is not used - rocq-of-rust is built with cargo directly
+# To compile Rust code, use cargo or the coq_of_rust_library rule for translation

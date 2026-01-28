@@ -1,52 +1,32 @@
-"""coq-of-rust toolchain definitions - PRIVATE implementation.
+"""Toolchain rule for rocq-of-rust."""
 
-Following the exact pattern used in rules_rust toolchain definitions.
-"""
+load("//coq_of_rust/private:coq_of_rust.bzl", "RocqOfRustToolchainInfo")
 
-# coq-of-rust toolchain provider
-def _coq_of_rust_toolchain_impl(ctx):
-    """Create coq-of-rust toolchain info provider."""
-    
-    # Get toolchain files
-    coq_of_rust_binary = ctx.file.coq_of_rust_binary
-    stdlib_files = ctx.files.stdlib_files
-    
-    # Create toolchain info
-    toolchain_info = struct(
-        coq_of_rust_binary = coq_of_rust_binary,
-        stdlib_files = stdlib_files,
-        include_paths = [ctx.attr.include_path] if ctx.attr.include_path else [],
+def _rocq_of_rust_toolchain_impl(ctx):
+    """Implementation of rocq_of_rust_toolchain rule."""
+    toolchain_info = platform_common.ToolchainInfo(
+        rocq_of_rust_info = RocqOfRustToolchainInfo(
+            rocq_of_rust_binary = ctx.attr.rocq_of_rust_binary,
+            rocq_of_rust_lib = ctx.attr.rocq_of_rust_lib,
+            lib_include_path = ctx.attr.lib_include_path,
+        ),
     )
-    
     return [toolchain_info]
 
-# coq-of-rust toolchain rule
-coq_of_rust_toolchain = rule(
-    implementation = _coq_of_rust_toolchain_impl,
+rocq_of_rust_toolchain = rule(
+    implementation = _rocq_of_rust_toolchain_impl,
     attrs = {
-        "coq_of_rust_binary": attr.label(
-            allow_single_file = True,
-            executable = True,
-            cfg = "exec",
-
-            doc = "coq-of-rust binary",
+        "rocq_of_rust_binary": attr.label(
+            mandatory = True,
+            doc = "The rocq-of-rust executable",
         ),
-        "stdlib_files": attr.label_list(
-            allow_files = True,
-            doc = "coq-of-rust standard library files",
+        "rocq_of_rust_lib": attr.label_list(
+            doc = "RocqOfRust Rocq library sources",
         ),
-        "include_path": attr.string(
-            doc = "Standard library include path",
+        "lib_include_path": attr.string(
+            default = "RocqOfRust",
+            doc = "Include path for the RocqOfRust library",
         ),
     },
-    doc = "Declares a coq-of-rust toolchain pointing to the translator binary",
+    doc = "Defines a rocq-of-rust toolchain",
 )
-
-# Standard library filegroup
-def coq_of_rust_stdlib_filegroup(name, srcs = None, **kwargs):
-    """Create a filegroup for coq-of-rust standard library files."""
-    native.filegroup(
-        name = name,
-        srcs = srcs,
-        **kwargs
-    )

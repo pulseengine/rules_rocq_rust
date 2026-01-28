@@ -1,41 +1,7 @@
-# Git ignore file for rules_rocq_rust
-
-# Bazel generated files
-bazel-*
-
-# Allow essential Bazel files
-!BUILD.bazel
-!WORKSPACE.bazel
-!MODULE.bazel
-
-# Build artifacts
-bazel-out/
-bazel-bin/
-bazel-testlogs/
-bazel-rules_rocq_rust/
-
-# IDE files
-.idea/
-.vscode/
-*.iml
-
-# Dependency directories
-third_party/
-
-# Local configuration (user-specific)
-.bazelrc.local
-
-# MacOS files
-.DS_Store
-
-# Python cache
-__pycache__/
-*.py[cod]
-
-# Log files
-*.log
-
-# Temporary files
-*~ 
-*.swp
-*.tmp
+bazel-bin
+bazel-out
+bazel-rules_rocq_rust
+bazel-testlogs
+bazel-loom
+.claude/
+MODULE.bazel.lock
