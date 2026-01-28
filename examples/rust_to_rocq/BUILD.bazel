@@ -45,9 +45,14 @@ rocq_library(
 #     edition = "2021",
 # )
 
-# You can also add proofs that depend on the translated code
-# rocq_library(
-#     name = "point_proofs",
-#     srcs = ["point_proofs.v"],  # Your manual proofs
-#     deps = [":point_compiled"],
-# )
+# Step 3: Prove properties about the translated code
+# This compiles point_proofs.v which imports and reasons about point.v
+rocq_library(
+    name = "point_proofs",
+    srcs = ["point_proofs.v"],
+    deps = [
+        ":point_compiled",
+        ":rocq_of_rust_lib",
+    ],
+    extra_flags = ["-impredicative-set"],
+)
