@@ -1,8 +1,0 @@
-# BUILD.bazel for verification_workflows/private package
-# Required for Bzlmod compatibility
-
-package(default_visibility = ["//verification_workflows:__subpackages__"])
-
-exports_files(
-    srcs = glob(["*.bzl"]),
-)

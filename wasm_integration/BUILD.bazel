@@ -1,8 +1,0 @@
-# BUILD.bazel for wasm_integration package
-# Required for Bzlmod compatibility
-
-package(default_visibility = ["//visibility:public"])
-
-exports_files(
-    srcs = glob(["*.bzl"]),
-)

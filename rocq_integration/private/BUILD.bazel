@@ -1,8 +1,0 @@
-# BUILD.bazel for rocq_integration/private package
-# Required for Bzlmod compatibility
-
-package(default_visibility = ["//rocq_integration:__subpackages__"])
-
-exports_files(
-    srcs = glob(["*.bzl"]),
-)

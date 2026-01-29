@@ -1,70 +1,41 @@
 # rules_rocq_rust
 
-Bazel rules for Rocq/Coq theorem proving with hermetic toolchain support via [Nix](https://nixos.org/).
+Bazel rules for Rocq/Coq theorem proving and Rust formal verification with hermetic toolchain support via [Nix](https://nixos.org/).
+
+## Features
+
+- **Rust → Rocq → Proofs**: Complete pipeline from Rust code to verified proofs
+- **rocq-of-rust Integration**: Translate Rust to Rocq via [rocq-of-rust](https://github.com/formal-land/rocq-of-rust)
+- **Hermetic Toolchains**: Rocq 9.0, coqutil, Hammer, smpl via nixpkgs
+- **Cross-Platform**: Linux, macOS (Intel & Apple Silicon)
+- **Bazel 8 bzlmod**: Modern module system support
 
 ## Prerequisites: Installing Nix
 
-**Nix is required** for the Rocq toolchain. The toolchain uses [nixpkgs](https://github.com/NixOS/nixpkgs) to provide hermetic Coq installations across all platforms.
+**Nix is required** for the Rocq toolchain.
 
 ### macOS
 
 ```bash
-# Install Nix (multi-user installation, recommended)
 sh <(curl -L https://nixos.org/nix/install)
-
-# Restart your terminal, or source the nix profile:
 . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-
-# Verify installation
 nix --version
 ```
 
 ### Linux
 
 ```bash
-# Install Nix (multi-user installation)
 sh <(curl -L https://nixos.org/nix/install) --daemon
-
-# Restart your terminal or start a new shell
-# Verify installation
 nix --version
 ```
-
-### Windows (via WSL2)
-
-```bash
-# In WSL2 Ubuntu/Debian:
-sh <(curl -L https://nixos.org/nix/install) --no-daemon
-
-# Verify installation
-nix --version
-```
-
-### Verify Coq is Available
-
-```bash
-# Test that Coq can be fetched from nixpkgs
-nix-shell -p coq --run "coqc --version"
-```
-
-## Features
-
-- **Hermetic Toolchains**: Coq toolchain provided via nixpkgs for reproducible builds
-- **Cross-Platform**: Linux (x86_64, aarch64), macOS (x86_64, aarch64)
-- **Multiple Coq Versions**: 8.20, 8.19, 8.18, 8.17, 8.16
-- **Bazel 8 bzlmod**: Modern module system support
-- **Rocq Platform Integration**: Provides equivalent tools to Rocq Platform
-- **coq-of-rust Support**: Planned integration for Rust-to-Coq translation
-- **Reproducible**: Pinned nixpkgs commit for deterministic builds
 
 ## Quick Start
 
-### 1. Add to your MODULE.bazel
+### 1. Add to MODULE.bazel
 
 ```starlark
 bazel_dep(name = "rules_rocq_rust", version = "0.1.0")
 
-# Override to fetch from GitHub (not yet in BCR)
 git_override(
     module_name = "rules_rocq_rust",
     remote = "https://github.com/pulseengine/rules_rocq_rust.git",
@@ -73,201 +44,116 @@ git_override(
 
 # Configure Rocq toolchain
 rocq = use_extension("@rules_rocq_rust//rocq:extensions.bzl", "rocq")
-rocq.toolchain(
-    version = "8.20",  # Coq version
-    strategy = "nix",  # Hermetic nix-based installation
-)
-use_repo(rocq, "rocq_toolchains")
-
+rocq.toolchain()
+use_repo(rocq, "rocq_toolchains", "rocq_stdlib", "rocq_coqutil", "rocq_hammer", "rocq_hammer_tactics", "rocq_smpl")
 register_toolchains("@rocq_toolchains//:all")
+
+# Configure rocq-of-rust
+rocq_of_rust = use_extension("@rules_rocq_rust//coq_of_rust:extensions.bzl", "rocq_of_rust")
+rocq_of_rust.toolchain(use_real_library = True)
+use_repo(rocq_of_rust, "rocq_of_rust_toolchains", "rocq_of_rust_source")
+register_toolchains("@rocq_of_rust_toolchains//:all")
 ```
 
-### 2. Create proof files
+### 2. Create a Rust file to verify
 
-```coq
-(* proofs/example.v *)
-Theorem plus_comm : forall n m : nat, n + m = m + n.
-Proof.
-  intros n m.
-  induction n as [| n' IHn'].
-  - simpl. rewrite Nat.add_0_r. reflexivity.
-  - simpl. rewrite IHn'. rewrite Nat.add_succ_r. reflexivity.
-Qed.
+```rust
+// point.rs
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Point { pub x: i32, pub y: i32 }
+
+impl Point {
+    pub fn origin() -> Self { Point { x: 0, y: 0 } }
+    pub fn new(x: i32, y: i32) -> Self { Point { x, y } }
+}
 ```
 
 ### 3. Add BUILD.bazel
 
 ```starlark
-load("@rules_rocq_rust//rocq:defs.bzl", "rocq_library", "rocq_proof_test")
+load("@rules_rocq_rust//coq_of_rust:defs.bzl", "coq_of_rust_library")
+load("@rules_rocq_rust//rocq:defs.bzl", "rocq_library")
 
-rocq_library(
-    name = "example_proofs",
-    srcs = ["example.v"],
+# Translate Rust to Rocq
+coq_of_rust_library(
+    name = "point_translated",
+    rust_sources = ["point.rs"],
+    edition = "2021",
 )
 
-rocq_proof_test(
-    name = "example_test",
-    srcs = ["example.v"],
-    deps = [":example_proofs"],
+# Compile translated Rocq code
+rocq_library(
+    name = "point_compiled",
+    srcs = [":point_translated"],
+    deps = ["@rocq_of_rust_source//:rocq_of_rust_main"],
+    extra_flags = ["-impredicative-set"],
+)
+
+# Write proofs about the Rust code
+rocq_library(
+    name = "point_proofs",
+    srcs = ["point_proofs.v"],
+    deps = [":point_compiled", "@rocq_of_rust_source//:rocq_of_rust_main"],
+    extra_flags = ["-impredicative-set"],
 )
 ```
 
-### 4. Build and test
+### 4. Build and verify
 
 ```bash
-# Build proofs
-bazel build //proofs:example_proofs
+# Translate and compile
+bazel build //:point_compiled
 
-# Run proof tests
-bazel test //proofs:example_test
+# Verify proofs
+bazel build //:point_proofs
+```
+
+## Example
+
+See `examples/rust_to_rocq/` for a complete working example with:
+- `point.rs` - Rust source code
+- Translated `point.v` (auto-generated)
+- `point_proofs.v` - Formal proofs about the Rust code
+
+```bash
+# Build the example
+bazel build //examples/rust_to_rocq:point_proofs
 ```
 
 ## How It Works
 
-### First Build (one-time setup)
-
-On the first build, Bazel will:
-
-1. Fetch the pinned nixpkgs repository (~200MB download)
-2. Use nix to fetch/build Coq from nixpkgs cache (~100MB)
-3. Cache everything in `~/.cache/bazel/`
-
-This takes **5-10 minutes** depending on your internet connection.
-
-### Subsequent Builds
-
-After initial setup:
-- Toolchain is cached locally
-- No nix invocation needed
-- Builds are fast and hermetic
-
-## Supported Platforms
-
-| Platform | Architecture | Status |
-|----------|-------------|--------|
-| Linux | x86_64 | ✅ Supported |
-| Linux | aarch64 | ✅ Supported |
-| macOS | x86_64 (Intel) | ✅ Supported |
-| macOS | aarch64 (Apple Silicon) | ✅ Supported |
-| Windows | x86_64 | ⚠️ Via WSL2 only |
-
-## Coq Versions
-
-Available Coq versions via nixpkgs:
-
-| Version | nixpkgs attribute | Status |
-|---------|-------------------|--------|
-| 8.20 | `coq_8_20` | ✅ Default |
-| 8.19 | `coq_8_19` | ✅ Supported |
-| 8.18 | `coq_8_18` | ✅ Supported |
-| 8.17 | `coq_8_17` | ✅ Supported |
-| 8.16 | `coq_8_16` | ✅ Supported |
-| latest | `coq` | ✅ Supported |
-
-To use a specific version:
-
-```starlark
-rocq.toolchain(
-    version = "8.19",  # Use Coq 8.19
-    strategy = "nix",
-)
-```
-
-## Examples
-
-See the `proofs/` directory for example usage:
-
-```bash
-# Build example proofs
-bazel build //proofs:all
-
-# Test proofs compile
-bazel test //proofs:...
-```
-
-## Toolchain Management
-
-The toolchain is managed via nixpkgs, providing hermetic Coq installations:
-
-- **Pinned nixpkgs**: Reproducible builds with fixed commit
-- **Multiple versions**: Switch Coq versions via `version` attribute
-- **Cross-platform**: Same configuration works on Linux and macOS
-
-### Rocq Platform Integration
-
-While we use nixpkgs instead of Rocq Platform binaries, the toolchain provides equivalent functionality:
-- Coq compiler and tools
-- Standard library
-- Documentation generator
-
-### coq-of-rust Support
-
-coq-of-rust integration is planned for future releases. The `rocq_library` rule can compile Coq files generated by coq-of-rust.
+1. **rocq-of-rust** translates Rust source to Rocq using a deeply embedded monadic DSL
+2. **coqc** compiles the translated `.v` files with the RocqOfRust library
+3. You write proofs in Rocq that reason about the translated Rust semantics
+4. Proofs are machine-checked by the Rocq type system
 
 ## Toolchain Contents
 
-The nix toolchain provides:
+The nixpkgs-based toolchain provides:
 
-| Tool | Description |
-|------|-------------|
-| `coqc` | Coq compiler |
-| `coqtop` | Interactive toplevel |
-| `coqdoc` | Documentation generator |
-| `coqchk` | Proof checker |
-| Standard Library | `lib/coq/theories/` |
+| Component | Description |
+|-----------|-------------|
+| Rocq 9.0 | Core theorem prover |
+| coqutil | Utility library |
+| Hammer | Automated proof tactics |
+| smpl | Simplification tactics |
+| rocq-of-rust | Rust-to-Rocq translator |
 
-## Troubleshooting
+## Supported Platforms
 
-### "nix: command not found"
-
-Nix is not installed or not in PATH. See [Installing Nix](#prerequisites-installing-nix).
-
-### "error: cannot connect to daemon"
-
-The nix daemon isn't running:
-
-```bash
-# macOS/Linux with systemd
-sudo systemctl start nix-daemon
-
-# macOS without systemd
-sudo launchctl start org.nixos.nix-daemon
-```
-
-### Slow first build
-
-The first build downloads nixpkgs and Coq. This is normal and only happens once. Subsequent builds use the cached toolchain.
-
-### "hash mismatch" errors
-
-The nixpkgs commit hash may have changed. Update the hash in MODULE.bazel or wait for a rules_rocq_rust update.
-
-## Development
-
-### Running Tests
-
-```bash
-# Verify rules load correctly
-bazel query //rocq/...
-
-# Build all targets
-bazel build //...
-```
-
-### Updating nixpkgs
-
-To update the pinned nixpkgs version:
-
-1. Find a recent commit from [NixOS/nixpkgs](https://github.com/NixOS/nixpkgs)
-2. Compute SHA256: `nix-prefetch-url --unpack https://github.com/NixOS/nixpkgs/archive/<commit>.tar.gz`
-3. Update MODULE.bazel with new commit and sha256
+| Platform | Status |
+|----------|--------|
+| Linux x86_64 | ✅ |
+| Linux aarch64 | ✅ |
+| macOS x86_64 | ✅ |
+| macOS aarch64 | ✅ |
 
 ## License
 
-Apache License 2.0 - See [LICENSE](LICENSE) file
+Apache License 2.0 - See [LICENSE](LICENSE)
 
 ## Related Projects
 
-- [nixpkgs](https://github.com/NixOS/nixpkgs) - Nix packages collection
-- [rules_nixpkgs](https://github.com/tweag/rules_nixpkgs) - Nix integration for Bazel
-- [Rocq Prover](https://rocq-prover.org/) - The Rocq/Coq theorem prover
+- [rocq-of-rust](https://github.com/formal-land/rocq-of-rust) - Rust to Rocq translator
+- [nixpkgs](https://github.com/NixOS/nixpkgs) - Nix packages
+- [Rocq Prover](https://rocq-prover.org/) - The Rocq theorem prover
