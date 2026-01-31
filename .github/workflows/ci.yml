@@ -7,6 +7,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+env:
+  # Pin nixpkgs for reproducibility
+  NIXPKGS_CHANNEL: nixpkgs=channel:nixos-unstable
+
 jobs:
   # Basic loading verification (fast, no nix required)
   verify-rules:
@@ -20,6 +24,14 @@ jobs:
     - name: Set up Bazel
       uses: bazelbuild/setup-bazelisk@v3
 
+    - name: Cache Bazel
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/bazel
+        key: bazel-verify-${{ runner.os }}-${{ hashFiles('MODULE.bazel', 'MODULE.bazel.lock') }}
+        restore-keys: |
+          bazel-verify-${{ runner.os }}-
+
     - name: Verify rules load
       run: |
         echo "Verifying Bazel rules load..."
@@ -27,9 +39,9 @@ jobs:
         bazel query //coq_of_rust/...
         echo "Rules load successfully"
 
-  # Full build with nix toolchain
+  # Full build with nix toolchain (Linux)
   build:
-    name: Build Example (nix)
+    name: Build Example (Linux)
     runs-on: ubuntu-latest
 
     steps:
@@ -39,10 +51,44 @@ jobs:
     - name: Install Nix
       uses: cachix/install-nix-action@v30
       with:
-        nix_path: nixpkgs=channel:nixos-unstable
+        nix_path: ${{ env.NIXPKGS_CHANNEL }}
+
+    - name: Setup Cachix
+      uses: cachix/cachix-action@v15
+      with:
+        name: nix-community
+        # Using public nix-community cache for common packages
+
+    - name: Cache Nix store
+      uses: actions/cache@v4
+      with:
+        path: /nix/store
+        key: nix-store-${{ runner.os }}-${{ hashFiles('rocq/private/toolchain.bzl') }}
+        restore-keys: |
+          nix-store-${{ runner.os }}-
+
+    - name: Install LLVM for Rust nightly
+      run: |
+        # rocq-of-rust requires rustc_private which links against LLVM
+        sudo apt-get update
+        sudo apt-get install -y llvm-dev libclang-dev
+
+    - name: Install Rust nightly
+      uses: dtolnay/rust-toolchain@nightly
+      with:
+        toolchain: nightly-2024-12-01
+        components: rustc-dev, rust-src
 
     - name: Set up Bazel
       uses: bazelbuild/setup-bazelisk@v3
+
+    - name: Cache Bazel
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/bazel
+        key: bazel-build-${{ runner.os }}-${{ hashFiles('MODULE.bazel', 'MODULE.bazel.lock') }}
+        restore-keys: |
+          bazel-build-${{ runner.os }}-
 
     - name: Build RocqOfRust library
       run: |
@@ -56,6 +102,12 @@ jobs:
         bazel build //examples/rust_to_rocq:point_proofs
         echo "Example proofs verified"
 
+    - name: Build advanced example
+      run: |
+        echo "Building advanced Rust features example..."
+        bazel build //examples/rust_to_rocq:advanced_verified
+        echo "Advanced example verified"
+
   # macOS build
   build-macos:
     name: Build Example (macOS)
@@ -68,16 +120,35 @@ jobs:
     - name: Install Nix
       uses: cachix/install-nix-action@v30
       with:
-        nix_path: nixpkgs=channel:nixos-unstable
+        nix_path: ${{ env.NIXPKGS_CHANNEL }}
+
+    - name: Setup Cachix
+      uses: cachix/cachix-action@v15
+      with:
+        name: nix-community
 
     - name: Set up Bazel
       uses: bazelbuild/setup-bazelisk@v3
+
+    - name: Cache Bazel
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/bazel
+        key: bazel-build-${{ runner.os }}-${{ hashFiles('MODULE.bazel', 'MODULE.bazel.lock') }}
+        restore-keys: |
+          bazel-build-${{ runner.os }}-
 
     - name: Build example proofs
       run: |
         echo "Building example proofs on macOS..."
         bazel build //examples/rust_to_rocq:point_proofs
         echo "Example proofs verified on macOS"
+
+    - name: Build advanced example
+      run: |
+        echo "Building advanced Rust features example..."
+        bazel build //examples/rust_to_rocq:advanced_verified
+        echo "Advanced example verified"
 
   # Buildifier check
   buildifier:
