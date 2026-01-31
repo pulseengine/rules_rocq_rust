@@ -43,6 +43,10 @@ jobs:
   build:
     name: Build Example (Linux)
     runs-on: ubuntu-latest
+    env:
+      # LLVM library paths for rustc_private linking
+      LIBRARY_PATH: /usr/lib/llvm-19/lib:/usr/lib/x86_64-linux-gnu
+      LD_LIBRARY_PATH: /usr/lib/llvm-19/lib:/usr/lib/x86_64-linux-gnu
 
     steps:
     - name: Checkout repository
@@ -67,11 +71,16 @@ jobs:
         restore-keys: |
           nix-store-${{ runner.os }}-
 
-    - name: Install LLVM for Rust nightly
+    - name: Install LLVM 19 for Rust nightly
       run: |
         # rocq-of-rust requires rustc_private which links against LLVM
+        # Rust nightly-2024-12-01 uses LLVM 19
+        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+        echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main" | sudo tee /etc/apt/sources.list.d/llvm-19.list
         sudo apt-get update
-        sudo apt-get install -y llvm-dev libclang-dev
+        sudo apt-get install -y llvm-19-dev libclang-19-dev
+        # Verify installation
+        ls -la /usr/lib/llvm-19/lib/ | head -5
 
     - name: Install Rust nightly
       uses: dtolnay/rust-toolchain@nightly
@@ -89,6 +98,12 @@ jobs:
         key: bazel-build-${{ runner.os }}-${{ hashFiles('MODULE.bazel', 'MODULE.bazel.lock') }}
         restore-keys: |
           bazel-build-${{ runner.os }}-
+
+    - name: Clean rocq-of-rust cache
+      run: |
+        # Force re-fetch of rocq-of-rust to pick up new LLVM libs
+        bazel clean --expunge_async || true
+        rm -rf ~/.cache/bazel/*rocq_of_rust* || true
 
     - name: Build RocqOfRust library
       run: |

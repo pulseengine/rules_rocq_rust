@@ -54,10 +54,37 @@ def _rocq_of_rust_source_impl(repository_ctx):
     # Build rocq-of-rust with cargo nightly
     repository_ctx.report_progress("Building rocq-of-rust with cargo nightly")
 
+    # Get library paths for LLVM (needed for rustc_private linking)
+    # On Linux, LLVM libs are typically in /usr/lib/llvm-*/lib
+    # On macOS with Homebrew, they're in /opt/homebrew/lib or /usr/local/lib
+    import_os = repository_ctx.os.environ
+    library_path = import_os.get("LIBRARY_PATH", "")
+    ld_library_path = import_os.get("LD_LIBRARY_PATH", "")
+
+    # Add common LLVM library paths
+    llvm_paths = [
+        "/usr/lib/llvm-19/lib",
+        "/usr/lib/llvm-18/lib",
+        "/usr/lib/llvm-17/lib",
+        "/usr/lib/x86_64-linux-gnu",
+        "/opt/homebrew/lib",
+        "/usr/local/lib",
+    ]
+    for path in llvm_paths:
+        if repository_ctx.path(path).exists:
+            library_path = "{}:{}".format(path, library_path) if library_path else path
+            ld_library_path = "{}:{}".format(path, ld_library_path) if ld_library_path else path
+
+    build_env = {
+        "CARGO_TERM_COLOR": "never",
+        "LIBRARY_PATH": library_path,
+        "LD_LIBRARY_PATH": ld_library_path,
+    }
+
     build_result = repository_ctx.execute(
         [str(cargo), "+{}".format(rust_nightly), "build", "--release"],
         timeout = 1200,
-        environment = {"CARGO_TERM_COLOR": "never"},
+        environment = build_env,
     )
 
     if build_result.return_code != 0:
