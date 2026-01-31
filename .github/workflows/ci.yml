@@ -57,20 +57,6 @@ jobs:
       with:
         nix_path: ${{ env.NIXPKGS_CHANNEL }}
 
-    - name: Setup Cachix
-      uses: cachix/cachix-action@v15
-      with:
-        name: nix-community
-        # Using public nix-community cache for common packages
-
-    - name: Cache Nix store
-      uses: actions/cache@v4
-      with:
-        path: /nix/store
-        key: nix-store-${{ runner.os }}-${{ hashFiles('rocq/private/toolchain.bzl') }}
-        restore-keys: |
-          nix-store-${{ runner.os }}-
-
     - name: Install LLVM 19 for Rust nightly
       run: |
         # rocq-of-rust requires rustc_private which links against LLVM
@@ -136,11 +122,6 @@ jobs:
       uses: cachix/install-nix-action@v30
       with:
         nix_path: ${{ env.NIXPKGS_CHANNEL }}
-
-    - name: Setup Cachix
-      uses: cachix/cachix-action@v15
-      with:
-        name: nix-community
 
     - name: Set up Bazel
       uses: bazelbuild/setup-bazelisk@v3
