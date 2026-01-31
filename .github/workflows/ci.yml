@@ -43,6 +43,10 @@ jobs:
   build:
     name: Build Example (Linux)
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      attestations: write
 
     steps:
     - name: Checkout repository
@@ -103,10 +107,33 @@ jobs:
         bazel build //examples/rust_to_rocq:advanced_verified
         echo "Advanced example verified"
 
+    - name: Collect verified artifacts
+      run: |
+        mkdir -p verified-artifacts
+        # Copy compiled proof files
+        find bazel-bin/examples -name "*.vo" -exec cp {} verified-artifacts/ \;
+        find bazel-bin/examples -name "*.v" -exec cp {} verified-artifacts/ \;
+        ls -la verified-artifacts/
+
+    - name: Upload verified artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: verified-proofs-linux
+        path: verified-artifacts/
+
+    - name: Attest build provenance
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-path: verified-artifacts/*
+
   # macOS build
   build-macos:
     name: Build Example (macOS)
     runs-on: macos-latest
+    permissions:
+      id-token: write
+      contents: read
+      attestations: write
 
     steps:
     - name: Checkout repository
@@ -139,6 +166,24 @@ jobs:
         echo "Building advanced Rust features example..."
         bazel build //examples/rust_to_rocq:advanced_verified
         echo "Advanced example verified"
+
+    - name: Collect verified artifacts
+      run: |
+        mkdir -p verified-artifacts
+        find bazel-bin/examples -name "*.vo" -exec cp {} verified-artifacts/ \;
+        find bazel-bin/examples -name "*.v" -exec cp {} verified-artifacts/ \;
+        ls -la verified-artifacts/
+
+    - name: Upload verified artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: verified-proofs-macos
+        path: verified-artifacts/
+
+    - name: Attest build provenance
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-path: verified-artifacts/*
 
   # Buildifier check
   buildifier:
