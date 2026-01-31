@@ -321,6 +321,8 @@ fi
 
     build_content = '''# Generated BUILD.bazel for rocq-of-rust (placeholder)
 
+load("@rules_rocq_rust//rocq:defs.bzl", "rocq_library")
+
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
@@ -328,10 +330,18 @@ filegroup(
     srcs = ["bin/rocq-of-rust"],
 )
 
-# RocqOfRust stub library sources
-filegroup(
+# RocqOfRust stub library - compiled from stubs
+rocq_library(
+    name = "rocq_of_rust_main",
+    srcs = ["RocqOfRust/RocqOfRust.v"],
+    include_path = "RocqOfRust",
+    extra_flags = ["-impredicative-set"],
+)
+
+# Alias for compatibility
+alias(
     name = "rocq_of_rust_rocq_lib",
-    srcs = glob(["RocqOfRust/**/*.v"], allow_empty = True),
+    actual = ":rocq_of_rust_main",
 )
 '''
     repository_ctx.file("BUILD.bazel", build_content)

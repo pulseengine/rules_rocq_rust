@@ -39,11 +39,12 @@ rocq_library(
 # -----------------------------------------
 
 # Single target that does both translation and compilation
-# rocq_rust_verified_library(
-#     name = "point_verified",
-#     rust_sources = ["point.rs"],
-#     edition = "2021",
-# )
+rocq_rust_verified_library(
+    name = "point_verified",
+    rust_sources = ["point.rs"],
+    edition = "2021",
+    extra_flags = ["-impredicative-set"],
+)
 
 # Step 3: Prove properties about the translated code
 # This compiles point_proofs.v which imports and reasons about point.v
@@ -62,4 +63,17 @@ rocq_proof_test(
     name = "point_proofs_test",
     srcs = ["point_proofs.v"],
     deps = [":point_proofs"],
+)
+
+# =========================================
+# Advanced Rust Features Example
+# =========================================
+# Tests generics, traits, lifetimes, enums
+
+# Translate and compile advanced Rust features
+rocq_rust_verified_library(
+    name = "advanced_verified",
+    rust_sources = ["advanced.rs"],
+    edition = "2021",
+    extra_flags = ["-impredicative-set"],
 )
