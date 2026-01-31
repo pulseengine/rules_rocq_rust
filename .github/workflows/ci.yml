@@ -43,10 +43,6 @@ jobs:
   build:
     name: Build Example (Linux)
     runs-on: ubuntu-latest
-    env:
-      # LLVM library paths for rustc_private linking
-      LIBRARY_PATH: /usr/lib/llvm-19/lib:/usr/lib/x86_64-linux-gnu
-      LD_LIBRARY_PATH: /usr/lib/llvm-19/lib:/usr/lib/x86_64-linux-gnu
 
     steps:
     - name: Checkout repository
@@ -57,22 +53,20 @@ jobs:
       with:
         nix_path: ${{ env.NIXPKGS_CHANNEL }}
 
-    - name: Install LLVM 19 for Rust nightly
-      run: |
-        # rocq-of-rust requires rustc_private which links against LLVM
-        # Rust nightly-2024-12-01 uses LLVM 19
-        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-        echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main" | sudo tee /etc/apt/sources.list.d/llvm-19.list
-        sudo apt-get update
-        sudo apt-get install -y llvm-19-dev libclang-19-dev
-        # Verify installation
-        ls -la /usr/lib/llvm-19/lib/ | head -5
-
     - name: Install Rust nightly
       uses: dtolnay/rust-toolchain@nightly
       with:
         toolchain: nightly-2024-12-01
-        components: rustc-dev, rust-src
+        components: rustc-dev, rust-src, llvm-tools-preview
+
+    - name: Set Rust library paths
+      run: |
+        # Get Rust sysroot and add its lib directory to library paths
+        RUST_SYSROOT=$(rustc +nightly-2024-12-01 --print sysroot)
+        echo "RUST_SYSROOT=$RUST_SYSROOT"
+        ls -la $RUST_SYSROOT/lib/ | head -10
+        echo "LIBRARY_PATH=$RUST_SYSROOT/lib:$LIBRARY_PATH" >> $GITHUB_ENV
+        echo "LD_LIBRARY_PATH=$RUST_SYSROOT/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
 
     - name: Set up Bazel
       uses: bazelbuild/setup-bazelisk@v3
