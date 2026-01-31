@@ -8,7 +8,7 @@ _RocqOfRustToolchainTag = tag_class(
     attrs = {
         "commit": attr.string(
             doc = "Git commit hash or branch of rocq-of-rust",
-            default = "main",
+            default = "",  # Empty means use pinned default
         ),
         "sha256": attr.string(
             doc = "SHA256 of the source archive",
@@ -21,6 +21,10 @@ _RocqOfRustToolchainTag = tag_class(
         "use_real_library": attr.bool(
             doc = "Use real RocqOfRust library (requires nixpkgs deps: coqutil, hammer, smpl)",
             default = False,
+        ),
+        "fail_on_error": attr.bool(
+            doc = "Fail build if rocq-of-rust cannot be built (recommended for production)",
+            default = True,
         ),
     },
 )
@@ -37,24 +41,31 @@ def _rocq_of_rust_impl(module_ctx):
     # Use first configuration or defaults
     if configs:
         config = configs[0]
-        commit = config.commit
+        commit = config.commit if config.commit else ""  # Empty uses pinned default
         sha256 = config.sha256
         rust_nightly = config.rust_nightly
         use_real_library = config.use_real_library
+        fail_on_error = config.fail_on_error
     else:
-        commit = "main"
+        commit = ""  # Uses pinned default in repository.bzl
         sha256 = ""
         rust_nightly = "nightly-2024-12-01"
         use_real_library = False
+        fail_on_error = True
 
     # Create source repository that downloads and builds rocq-of-rust
-    rocq_of_rust_source(
-        name = "rocq_of_rust_source",
-        commit = commit,
-        sha256 = sha256,
-        rust_nightly = rust_nightly,
-        use_real_library = use_real_library,
-    )
+    repo_kwargs = {
+        "name": "rocq_of_rust_source",
+        "rust_nightly": rust_nightly,
+        "use_real_library": use_real_library,
+        "fail_on_error": fail_on_error,
+    }
+    if commit:
+        repo_kwargs["commit"] = commit
+    if sha256:
+        repo_kwargs["sha256"] = sha256
+
+    rocq_of_rust_source(**repo_kwargs)
 
     # Create toolchain repository
     _create_toolchain_repo(name = "rocq_of_rust_toolchains")

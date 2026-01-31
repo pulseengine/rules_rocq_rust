@@ -77,3 +77,10 @@ rocq_rust_verified_library(
     edition = "2021",
     extra_flags = ["-impredicative-set"],
 )
+
+# Test that advanced example compiles
+rocq_proof_test(
+    name = "advanced_verified_test",
+    srcs = [],  # No additional sources, just verify compilation
+    deps = [":advanced_verified"],
+)

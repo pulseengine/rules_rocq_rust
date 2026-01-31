@@ -4,14 +4,17 @@ This rule downloads the rocq-of-rust source and builds it using cargo nightly.
 Building with cargo directly avoids crate_universe issues with edition2024 crates.
 """
 
-_DEFAULT_COMMIT = "main"
+# Pinned rocq-of-rust version for reproducibility
+_DEFAULT_COMMIT = "858907dbee116c51d7c6e87511bf5f92d6432ba4"
+_DEFAULT_SHA256 = "2fcfb09c3d14091f021b3aa7876ada55a29708c7f27f6646d3ebee162975bf61"
 _DEFAULT_REPO = "https://github.com/formal-land/rocq-of-rust"
 _DEFAULT_NIGHTLY = "nightly-2024-12-01"
 
 def _rocq_of_rust_source_impl(repository_ctx):
     """Download and build rocq-of-rust from source."""
 
-    commit = repository_ctx.attr.commit
+    # Use defaults if not specified
+    commit = repository_ctx.attr.commit if repository_ctx.attr.commit else _DEFAULT_COMMIT
     sha256 = repository_ctx.attr.sha256
     rust_nightly = repository_ctx.attr.rust_nightly
     use_real_library = repository_ctx.attr.use_real_library
@@ -21,12 +24,17 @@ def _rocq_of_rust_source_impl(repository_ctx):
     # Download source archive
     url = "{}/archive/{}.tar.gz".format(_DEFAULT_REPO, commit)
 
+    # Use default sha256 if commit matches default and no override provided
+    effective_sha256 = sha256
+    if not effective_sha256 and commit == _DEFAULT_COMMIT:
+        effective_sha256 = _DEFAULT_SHA256
+
     download_kwargs = {
         "url": url,
-        "stripPrefix": "rocq-of-rust-{}".format(commit) if commit != "main" else "rocq-of-rust-main",
+        "stripPrefix": "rocq-of-rust-{}".format(commit),
     }
-    if sha256:
-        download_kwargs["sha256"] = sha256
+    if effective_sha256:
+        download_kwargs["sha256"] = effective_sha256
 
     repository_ctx.download_and_extract(**download_kwargs)
 
@@ -310,7 +318,25 @@ filegroup(
     repository_ctx.file("BUILD.bazel", build_content)
 
 def _create_placeholder(repository_ctx, reason):
-    """Create placeholder when build fails."""
+    """Create placeholder when build fails, or fail if fail_on_error is set."""
+
+    # Check if we should fail loudly
+    if repository_ctx.attr.fail_on_error:
+        fail("""
+rocq-of-rust build failed: {}
+
+To fix this, ensure you have:
+1. Rust nightly toolchain: rustup toolchain install nightly-2024-12-01
+2. Required components: rustup component add rustc-dev rust-src --toolchain nightly-2024-12-01
+3. LIBRARY_PATH set to include Rust's lib directory (for LLVM)
+
+On macOS, this usually works automatically via nix.
+On Linux, you may need: export LIBRARY_PATH=$(rustc +nightly-2024-12-01 --print sysroot)/lib
+
+To use placeholder mode instead (not recommended for production):
+  rocq_of_rust.toolchain(fail_on_error = False)
+""".format(reason))
+
     print("Creating rocq-of-rust placeholder: {}".format(reason))
 
     # Create placeholder script that generates stub output
@@ -621,6 +647,10 @@ rocq_of_rust_source = repository_rule(
         "use_real_library": attr.bool(
             default = False,
             doc = "Use real RocqOfRust library (requires nixpkgs deps: coqutil, hammer, smpl)",
+        ),
+        "fail_on_error": attr.bool(
+            default = True,
+            doc = "Fail the build if rocq-of-rust cannot be built. Set to False to use placeholder.",
         ),
     },
     doc = "Downloads and builds rocq-of-rust from source using cargo nightly.",
