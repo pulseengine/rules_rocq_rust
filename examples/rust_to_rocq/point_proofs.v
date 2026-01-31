@@ -13,112 +13,182 @@
 Require Import RocqOfRust.RocqOfRust.
 From examples.rust_to_rocq Require Import point.
 
-(** ** Proof 1: origin() produces a pure value with both fields zero
+(* ========================================================================= *)
+(** * Section 1: Point::origin() Proofs *)
+(* ========================================================================= *)
 
-    The Rust function:
-      pub fn origin() -> Self { Point { x: 0, y: 0 } }
-
-    Since origin has no arguments and constructs a struct from
-    constant literals, the [monadic] tactic wraps the result with
-    [pure], producing [LowM.Pure (inl (Value.mkStructRecord ...))]. *)
-
+(** ** origin() produces a pure value with both fields zero *)
 Theorem origin_returns_zero_point :
   Impl_point_Point.origin [] [] [] =
     M.pure (Value.mkStructRecord "point::Point" [] []
       [("x", Value.Integer IntegerKind.I32 0);
        ("y", Value.Integer IntegerKind.I32 0)]).
-Proof.
-  reflexivity.
-Qed.
+Proof. reflexivity. Qed.
 
-(** ** Proof 2: origin() is a pure computation (no side effects)
-
-    We prove that origin returns a [LowM.Pure] value, meaning it
-    performs no memory allocations, closure calls, or IO.
-    This reflects the Rust semantics: constructing a struct literal
-    with constant fields is a pure operation. *)
-
+(** ** origin() is a pure computation (no side effects) *)
 Theorem origin_is_pure :
   exists v, Impl_point_Point.origin [] [] [] = LowM.Pure v.
-Proof.
-  eexists.
-  reflexivity.
-Qed.
+Proof. eexists. reflexivity. Qed.
 
-(** ** Proof 3: origin() returns a successful (non-exception) value
-
-    The [M] monad uses [Value.t + Exception.t] as its result type.
-    A successful computation wraps the value with [inl].
-    We prove origin never raises an exception. *)
-
+(** ** origin() returns a successful (non-exception) value *)
 Theorem origin_succeeds :
   exists v : Value.t,
     Impl_point_Point.origin [] [] [] = LowM.Pure (inl v).
-Proof.
-  eexists.
-  reflexivity.
-Qed.
+Proof. eexists. reflexivity. Qed.
 
-(** ** Proof 4: Wrong argument counts produce M.impossible
+(* ========================================================================= *)
+(** * Section 2: Point::new() Proofs *)
+(* ========================================================================= *)
 
-    The translated code includes exhaustive pattern matching.
-    Calling a function with the wrong argument count falls
-    through to the [M.impossible] error case. This ensures
-    the Rust function's arity is preserved in the translation. *)
-
-Theorem origin_rejects_extra_args :
-  forall v : Value.t,
-    Impl_point_Point.origin [] [] [v] =
-      M.impossible "wrong number of arguments".
-Proof.
-  intro v.
-  reflexivity.
-Qed.
-
+(** ** new() with wrong argument counts produces M.impossible *)
 Theorem new_rejects_no_args :
   Impl_point_Point.new [] [] [] =
     M.impossible "wrong number of arguments".
-Proof.
-  reflexivity.
-Qed.
+Proof. reflexivity. Qed.
 
 Theorem new_rejects_one_arg :
   forall v : Value.t,
     Impl_point_Point.new [] [] [v] =
       M.impossible "wrong number of arguments".
-Proof.
-  intro v.
-  reflexivity.
-Qed.
+Proof. intro v. reflexivity. Qed.
 
-(** ** Proof 5: The origin struct has the correct type path
+Theorem new_rejects_three_args :
+  forall a b c : Value.t,
+    Impl_point_Point.new [] [] [a; b; c] =
+      M.impossible "wrong number of arguments".
+Proof. intros. reflexivity. Qed.
 
-    From [origin_returns_zero_point] we know the exact return value.
-    We derive that the struct name is "point::Point", matching
-    the Rust fully-qualified type path. *)
+(* ========================================================================= *)
+(** * Section 3: Point::translate() Proofs *)
+(* ========================================================================= *)
 
-Corollary origin_struct_name :
-  let result := Value.mkStructRecord "point::Point" [] []
-    [("x", Value.Integer IntegerKind.I32 0);
-     ("y", Value.Integer IntegerKind.I32 0)] in
-  Impl_point_Point.origin [] [] [] = M.pure result /\
-  result = Value.StructRecord "point::Point" [] []
-    [("x", Value.Integer IntegerKind.I32 0);
-     ("y", Value.Integer IntegerKind.I32 0)].
-Proof.
-  split; reflexivity.
-Qed.
+(** ** translate() requires exactly 3 arguments (self, dx, dy) *)
+Theorem translate_rejects_no_args :
+  Impl_point_Point.translate [] [] [] =
+    M.impossible "wrong number of arguments".
+Proof. reflexivity. Qed.
 
-(** ** Proof 6: origin() returns x=0 and y=0
+Theorem translate_rejects_one_arg :
+  forall v : Value.t,
+    Impl_point_Point.translate [] [] [v] =
+      M.impossible "wrong number of arguments".
+Proof. intro v. reflexivity. Qed.
 
-    We prove that the origin point has both coordinates equal to
-    zero by showing the exact field values in the returned struct. *)
+Theorem translate_rejects_two_args :
+  forall a b : Value.t,
+    Impl_point_Point.translate [] [] [a; b] =
+      M.impossible "wrong number of arguments".
+Proof. intros. reflexivity. Qed.
 
-Corollary origin_fields_are_zero :
-  Impl_point_Point.origin [] [] [] =
-    M.pure (Value.StructRecord "point::Point" [] []
-      [("x", Value.Integer IntegerKind.I32 0);
-       ("y", Value.Integer IntegerKind.I32 0)]).
-Proof.
-  exact origin_returns_zero_point.
-Qed.
+(* ========================================================================= *)
+(** * Section 4: Point::squared_distance() Proofs *)
+(* ========================================================================= *)
+
+(** ** squared_distance() requires exactly 1 argument (self) *)
+Theorem squared_distance_rejects_no_args :
+  Impl_point_Point.squared_distance [] [] [] =
+    M.impossible "wrong number of arguments".
+Proof. reflexivity. Qed.
+
+Theorem squared_distance_rejects_two_args :
+  forall a b : Value.t,
+    Impl_point_Point.squared_distance [] [] [a; b] =
+      M.impossible "wrong number of arguments".
+Proof. intros. reflexivity. Qed.
+
+(* ========================================================================= *)
+(** * Section 5: Point::is_origin() Proofs *)
+(* ========================================================================= *)
+
+(** ** is_origin() requires exactly 1 argument (self) *)
+Theorem is_origin_rejects_no_args :
+  Impl_point_Point.is_origin [] [] [] =
+    M.impossible "wrong number of arguments".
+Proof. reflexivity. Qed.
+
+Theorem is_origin_rejects_two_args :
+  forall a b : Value.t,
+    Impl_point_Point.is_origin [] [] [a; b] =
+      M.impossible "wrong number of arguments".
+Proof. intros. reflexivity. Qed.
+
+(* ========================================================================= *)
+(** * Section 6: Rectangle Proofs *)
+(* ========================================================================= *)
+
+(** ** Rectangle::new() requires exactly 2 arguments *)
+Theorem rectangle_new_rejects_no_args :
+  Impl_point_Rectangle.new [] [] [] =
+    M.impossible "wrong number of arguments".
+Proof. reflexivity. Qed.
+
+Theorem rectangle_new_rejects_one_arg :
+  forall v : Value.t,
+    Impl_point_Rectangle.new [] [] [v] =
+      M.impossible "wrong number of arguments".
+Proof. intro v. reflexivity. Qed.
+
+Theorem rectangle_new_rejects_three_args :
+  forall a b c : Value.t,
+    Impl_point_Rectangle.new [] [] [a; b; c] =
+      M.impossible "wrong number of arguments".
+Proof. intros. reflexivity. Qed.
+
+(** ** Rectangle::width() and height() require exactly 1 argument *)
+Theorem rectangle_width_rejects_no_args :
+  Impl_point_Rectangle.width [] [] [] =
+    M.impossible "wrong number of arguments".
+Proof. reflexivity. Qed.
+
+Theorem rectangle_height_rejects_no_args :
+  Impl_point_Rectangle.height [] [] [] =
+    M.impossible "wrong number of arguments".
+Proof. reflexivity. Qed.
+
+(* ========================================================================= *)
+(** * Section 7: Type Definitions *)
+(* ========================================================================= *)
+
+(** ** Self type for Point implementation is "point::Point" *)
+Theorem point_self_type :
+  Impl_point_Point.Self = Ty.path "point::Point".
+Proof. reflexivity. Qed.
+
+(** ** Self type for Rectangle implementation is "point::Rectangle" *)
+Theorem rectangle_self_type :
+  Impl_point_Rectangle.Self = Ty.path "point::Rectangle".
+Proof. reflexivity. Qed.
+
+(* ========================================================================= *)
+(** * Section 8: Derived Trait Implementations *)
+(* ========================================================================= *)
+
+(** ** Clone::clone() requires exactly 1 argument *)
+Theorem clone_rejects_no_args :
+  Impl_core_clone_Clone_for_point_Point.clone [] [] [] =
+    M.impossible "wrong number of arguments".
+Proof. reflexivity. Qed.
+
+(** ** PartialEq::eq() requires exactly 2 arguments *)
+Theorem eq_rejects_no_args :
+  Impl_core_cmp_PartialEq_point_Point_for_point_Point.eq [] [] [] =
+    M.impossible "wrong number of arguments".
+Proof. reflexivity. Qed.
+
+Theorem eq_rejects_one_arg :
+  forall v : Value.t,
+    Impl_core_cmp_PartialEq_point_Point_for_point_Point.eq [] [] [v] =
+      M.impossible "wrong number of arguments".
+Proof. intro v. reflexivity. Qed.
+
+(** ** Debug::fmt() requires exactly 2 arguments *)
+Theorem debug_fmt_rejects_no_args :
+  Impl_core_fmt_Debug_for_point_Point.fmt [] [] [] =
+    M.impossible "wrong number of arguments".
+Proof. reflexivity. Qed.
+
+Theorem debug_fmt_rejects_one_arg :
+  forall v : Value.t,
+    Impl_core_fmt_Debug_for_point_Point.fmt [] [] [v] =
+      M.impossible "wrong number of arguments".
+Proof. intro v. reflexivity. Qed.

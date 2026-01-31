@@ -4,7 +4,7 @@
 # translate Rust code into Rocq and compile it for formal verification.
 
 load("@rules_rocq_rust//coq_of_rust:defs.bzl", "coq_of_rust_library", "rocq_rust_verified_library")
-load("@rules_rocq_rust//rocq:defs.bzl", "rocq_library")
+load("@rules_rocq_rust//rocq:defs.bzl", "rocq_library", "rocq_proof_test")
 
 # RocqOfRust library - provides the core types needed by translated code
 #
@@ -55,4 +55,11 @@ rocq_library(
         ":rocq_of_rust_lib",
     ],
     extra_flags = ["-impredicative-set"],
+)
+
+# Test target: verifies proofs compile successfully
+rocq_proof_test(
+    name = "point_proofs_test",
+    srcs = ["point_proofs.v"],
+    deps = [":point_proofs"],
 )

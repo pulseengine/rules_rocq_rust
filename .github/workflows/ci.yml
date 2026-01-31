@@ -8,41 +8,91 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Basic loading verification
+  # Basic loading verification (fast, no nix required)
   verify-rules:
     name: Verify Rules Load
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      
+
     - name: Set up Bazel
       uses: bazelbuild/setup-bazelisk@v3
-    
+
     - name: Verify rules load
       run: |
         echo "Verifying Bazel rules load..."
         bazel query //rocq/...
-        echo "✅ Rules load successfully"
+        bazel query //coq_of_rust/...
+        echo "Rules load successfully"
+
+  # Full build with nix toolchain
+  build:
+    name: Build Example (nix)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Nix
+      uses: cachix/install-nix-action@v30
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+
+    - name: Set up Bazel
+      uses: bazelbuild/setup-bazelisk@v3
+
+    - name: Build RocqOfRust library
+      run: |
+        echo "Building RocqOfRust library..."
+        bazel build @rocq_of_rust_source//:rocq_of_rust_main
+        echo "RocqOfRust library built"
+
+    - name: Build example proofs
+      run: |
+        echo "Building example proofs..."
+        bazel build //examples/rust_to_rocq:point_proofs
+        echo "Example proofs verified"
+
+  # macOS build
+  build-macos:
+    name: Build Example (macOS)
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Nix
+      uses: cachix/install-nix-action@v30
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+
+    - name: Set up Bazel
+      uses: bazelbuild/setup-bazelisk@v3
+
+    - name: Build example proofs
+      run: |
+        echo "Building example proofs on macOS..."
+        bazel build //examples/rust_to_rocq:point_proofs
+        echo "Example proofs verified on macOS"
 
   # Buildifier check
   buildifier:
     name: Buildifier Check
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      
+
     - name: Set up Bazel
       uses: bazelbuild/setup-bazelisk@v3
-    
+
     - name: Check formatting
       run: |
-        # Download buildifier
         curl -Lo buildifier https://github.com/bazelbuild/buildtools/releases/download/v7.3.1/buildifier-linux-amd64
         chmod +x buildifier
-        
-        # Check formatting (don't fail, just report)
-        ./buildifier --mode=check -r . || echo "⚠️ Some files need formatting"
+        ./buildifier --mode=check -r . || echo "Some files need formatting"
