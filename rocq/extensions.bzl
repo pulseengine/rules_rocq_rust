@@ -3,12 +3,14 @@
 Provides Rocq/Coq toolchain setup using nixpkgs for hermetic builds.
 Supports Rocq 9.0+ and includes required external packages for rocq-of-rust.
 
-NOTE: The root module MUST configure nixpkgs repository using rules_nixpkgs_core
-and it must be named "@nixpkgs". See README.md for example configuration.
+This extension creates its own nixpkgs repository internally for bzlmod compatibility.
 """
 
-load("@rules_nixpkgs_core//:nixpkgs.bzl", "nixpkgs_package")
+load("@rules_nixpkgs_core//:nixpkgs.bzl", "nixpkgs_package", "nixpkgs_local_repository")
 load("//rocq/private:smpl_repository.bzl", "smpl_source")
+
+# Default nixpkgs commit (nixos-unstable with Rocq 9.0)
+_DEFAULT_NIXPKGS_COMMIT = "88d3861acdd3d2f0e361767018218e51810df8a1"
 
 # Tag classes for Rocq toolchain configuration
 _RocqToolchainTag = tag_class(
@@ -22,10 +24,6 @@ _RocqToolchainTag = tag_class(
             doc = "Tool acquisition strategy: 'nix' for hermetic nixpkgs",
             default = "nix",
             values = ["nix"],
-        ),
-        "nixpkgs": attr.string(
-            doc = "Name of the nixpkgs repository (default: @nixpkgs)",
-            default = "@nixpkgs",
         ),
         "with_rocq_of_rust_deps": attr.bool(
             doc = "Include dependencies for rocq-of-rust (coqutil, hammer, smpl)",
@@ -233,7 +231,7 @@ def _rocq_impl(module_ctx):
 
     Uses nixpkgs to provide hermetic Rocq/Coq installation.
     Includes optional dependencies for rocq-of-rust (coqutil, hammer, smpl).
-    The root module must configure @nixpkgs repository.
+    Creates its own nixpkgs repository for bzlmod compatibility.
     """
     # Collect toolchain configurations from all modules
     toolchains = []
@@ -245,17 +243,29 @@ def _rocq_impl(module_ctx):
     if toolchains:
         config = toolchains[0]
         rocq_version = config.version
-        nixpkgs_repo = config.nixpkgs
         with_deps = config.with_rocq_of_rust_deps
     else:
         rocq_version = "9.0"
-        nixpkgs_repo = "@nixpkgs"
         with_deps = True
 
     rocq_attr = _get_rocq_attr(rocq_version)
 
+    # Create internal nixpkgs repository for bzlmod compatibility
+    # Extensions can't see repositories from other modules, so we define our own
+    # The nix_file_content must return a function that accepts { config, overlays, ... }
+    nixpkgs_local_repository(
+        name = "rocq_nixpkgs",
+        nix_file_content = """
+{{ config ? {{}}, overlays ? [], ... }}:
+import (builtins.fetchTarball {{
+  url = "https://github.com/NixOS/nixpkgs/archive/{commit}.tar.gz";
+}}) {{ inherit config overlays; }}
+""".format(commit = _DEFAULT_NIXPKGS_COMMIT),
+    )
+
+    nixpkgs_repo = "@rocq_nixpkgs"
+
     # Create main Rocq toolchain using nixpkgs_package
-    # NOTE: This requires @nixpkgs to be defined in the root module
     nixpkgs_package(
         name = "rocq_toolchains",
         repository = nixpkgs_repo,
