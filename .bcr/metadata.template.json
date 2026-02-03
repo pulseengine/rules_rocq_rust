@@ -1,0 +1,14 @@
+{
+  "homepage": "https://github.com/pulseengine/rules_rocq_rust",
+  "maintainers": [
+    {
+      "github": "r",
+      "github_user_id": 50374
+    }
+  ],
+  "repository": [
+    "github:pulseengine/rules_rocq_rust"
+  ],
+  "versions": [],
+  "yanked_versions": {}
+}

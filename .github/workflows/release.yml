@@ -73,12 +73,9 @@ jobs:
       
     - name: Build and test release
       run: |
-        echo "🧪 Testing release v${{ steps.version.outputs.version }}..."
-        
-        # Run all tests
-        bazel test //test/... --test_output=all
-        
-        # Build all examples
-        bazel build //examples/...
-        
-        echo "✅ Release v${{ steps.version.outputs.version }} is ready!"
+        echo "Testing release v${{ steps.version.outputs.version }}..."
+
+        # Build the example (test/ directory was removed)
+        bazel build //examples/rust_to_rocq:all
+
+        echo "Release v${{ steps.version.outputs.version }} is ready!"
