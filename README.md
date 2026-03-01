@@ -14,7 +14,7 @@
 
 &nbsp;
 
-Bazel rules for Rocq/Coq theorem proving and Rust formal verification with hermetic toolchain support via [Nix](https://nixos.org/).
+Bazel rules for Rocq theorem proving and Rust formal verification with hermetic toolchain support via [Nix](https://nixos.org/).
 
 > [!NOTE]
 > Part of the PulseEngine toolchain. Powers the mechanized proofs in Meld, Loom, and PulseEngine verification infrastructure.
