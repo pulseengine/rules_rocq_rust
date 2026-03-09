@@ -16,7 +16,7 @@ _RocqOfRustToolchainTag = tag_class(
         ),
         "rust_nightly": attr.string(
             doc = "Rust nightly version to use",
-            default = "nightly-2024-12-01",
+            default = "nightly-2024-12-07",
         ),
         "use_real_library": attr.bool(
             doc = "Use real RocqOfRust library (requires nixpkgs deps: coqutil, hammer, smpl)",
@@ -49,7 +49,7 @@ def _rocq_of_rust_impl(module_ctx):
     else:
         commit = ""  # Uses pinned default in repository.bzl
         sha256 = ""
-        rust_nightly = "nightly-2024-12-01"
+        rust_nightly = "nightly-2024-12-07"
         use_real_library = False
         fail_on_error = True
 

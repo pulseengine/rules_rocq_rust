@@ -45,9 +45,9 @@ sh <(curl -L https://nixos.org/nix/install) --daemon
 On Linux, rocq-of-rust requires Rust nightly with rustc internals:
 
 ```bash
-rustup toolchain install nightly-2024-12-01
-rustup component add rustc-dev rust-src --toolchain nightly-2024-12-01
-export LIBRARY_PATH="$(rustc +nightly-2024-12-01 --print sysroot)/lib:$LIBRARY_PATH"
+rustup toolchain install nightly-2024-12-07
+rustup component add rustc-dev rust-src --toolchain nightly-2024-12-07
+export LIBRARY_PATH="$(rustc +nightly-2024-12-07 --print sysroot)/lib:$LIBRARY_PATH"
 ```
 
 On macOS, Nix provides the complete Rust toolchain automatically.
@@ -151,7 +151,7 @@ Test rule that verifies proofs compile successfully.
 
 | Component | Description |
 |-----------|-------------|
-| Rocq 9.0 | Core theorem prover |
+| Rocq 9.0.1 | Core theorem prover |
 | coqutil | Utility library |
 | Hammer | Automated proof tactics |
 | smpl | Simplification tactics |
@@ -171,13 +171,13 @@ Test rule that verifies proofs compile successfully.
 ### "unable to find library -lLLVM-19-rust-*" (Linux)
 
 ```bash
-export LIBRARY_PATH="$(rustc +nightly-2024-12-01 --print sysroot)/lib:$LIBRARY_PATH"
+export LIBRARY_PATH="$(rustc +nightly-2024-12-07 --print sysroot)/lib:$LIBRARY_PATH"
 ```
 
 ### "rustc-dev component not found"
 
 ```bash
-rustup component add rustc-dev rust-src --toolchain nightly-2024-12-01
+rustup component add rustc-dev rust-src --toolchain nightly-2024-12-07
 ```
 
 ## Example

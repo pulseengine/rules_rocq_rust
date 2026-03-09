@@ -8,7 +8,7 @@ Building with cargo directly avoids crate_universe issues with edition2024 crate
 _DEFAULT_COMMIT = "858907dbee116c51d7c6e87511bf5f92d6432ba4"
 _DEFAULT_SHA256 = "2fcfb09c3d14091f021b3aa7876ada55a29708c7f27f6646d3ebee162975bf61"
 _DEFAULT_REPO = "https://github.com/formal-land/rocq-of-rust"
-_DEFAULT_NIGHTLY = "nightly-2024-12-01"
+_DEFAULT_NIGHTLY = "nightly-2024-12-07"
 
 def _rocq_of_rust_source_impl(repository_ctx):
     """Download and build rocq-of-rust from source."""
@@ -326,12 +326,12 @@ def _create_placeholder(repository_ctx, reason):
 rocq-of-rust build failed: {}
 
 To fix this, ensure you have:
-1. Rust nightly toolchain: rustup toolchain install nightly-2024-12-01
-2. Required components: rustup component add rustc-dev rust-src --toolchain nightly-2024-12-01
+1. Rust nightly toolchain: rustup toolchain install nightly-2024-12-07
+2. Required components: rustup component add rustc-dev rust-src --toolchain nightly-2024-12-07
 3. LIBRARY_PATH set to include Rust's lib directory (for LLVM)
 
 On macOS, this usually works automatically via nix.
-On Linux, you may need: export LIBRARY_PATH=$(rustc +nightly-2024-12-01 --print sysroot)/lib
+On Linux, you may need: export LIBRARY_PATH=$(rustc +nightly-2024-12-07 --print sysroot)/lib
 
 To use placeholder mode instead (not recommended for production):
   rocq_of_rust.toolchain(fail_on_error = False)

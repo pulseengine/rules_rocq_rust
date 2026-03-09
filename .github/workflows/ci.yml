@@ -60,13 +60,13 @@ jobs:
     - name: Install Rust nightly
       uses: dtolnay/rust-toolchain@nightly
       with:
-        toolchain: nightly-2024-12-01
+        toolchain: nightly-2024-12-07
         components: rustc-dev, rust-src, llvm-tools-preview
 
     - name: Set Rust library paths
       run: |
         # Get Rust sysroot and add its lib directory to library paths
-        RUST_SYSROOT=$(rustc +nightly-2024-12-01 --print sysroot)
+        RUST_SYSROOT=$(rustc +nightly-2024-12-07 --print sysroot)
         echo "RUST_SYSROOT=$RUST_SYSROOT"
         ls -la $RUST_SYSROOT/lib/ | head -10
         echo "LIBRARY_PATH=$RUST_SYSROOT/lib:$LIBRARY_PATH" >> $GITHUB_ENV

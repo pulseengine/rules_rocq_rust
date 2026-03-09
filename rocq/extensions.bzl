@@ -1,7 +1,7 @@
 """Module extensions for using rules_rocq with bzlmod.
 
 Provides Rocq/Coq toolchain setup using nixpkgs for hermetic builds.
-Supports Rocq 9.0+ and includes required external packages for rocq-of-rust.
+Supports Rocq 9.0.1+ and includes required external packages for rocq-of-rust.
 
 This extension creates its own nixpkgs repository internally for bzlmod compatibility.
 """
@@ -9,8 +9,8 @@ This extension creates its own nixpkgs repository internally for bzlmod compatib
 load("@rules_nixpkgs_core//:nixpkgs.bzl", "nixpkgs_package", "nixpkgs_local_repository")
 load("//rocq/private:smpl_repository.bzl", "smpl_source")
 
-# Default nixpkgs commit (nixos-unstable with Rocq 9.0)
-_DEFAULT_NIXPKGS_COMMIT = "88d3861acdd3d2f0e361767018218e51810df8a1"
+# Default nixpkgs commit (nixos-unstable with Rocq 9.0.1)
+_DEFAULT_NIXPKGS_COMMIT = "aca4d95fce4914b3892661bcb80b8087293536c6"
 
 # Tag classes for Rocq toolchain configuration
 _RocqToolchainTag = tag_class(
