@@ -59,9 +59,9 @@ def _coq_of_rust_library_impl(ctx):
         depth = len(src_dir.split("/"))
         prefix = "/".join([".."] * depth)
 
-        inputs = [src, wrapper]
-        if real_binary:
-            inputs.append(real_binary)
+        # Include all binary files (wrapper, real binary, and rust_sysroot libs)
+        # so they are available in the Bazel sandbox at runtime
+        inputs = [src] + binary_files
 
         # Use run_shell to change directory before running
         # Paths need to be relative to src_dir after cd
