@@ -10,7 +10,7 @@ load("@rules_nixpkgs_core//:nixpkgs.bzl", "nixpkgs_package", "nixpkgs_local_repo
 load("//rocq/private:smpl_repository.bzl", "smpl_source")
 
 # Default nixpkgs commit (nixos-unstable with Rocq 9.0.1)
-_DEFAULT_NIXPKGS_COMMIT = "aca4d95fce4914b3892661bcb80b8087293536c6"
+_DEFAULT_NIXPKGS_COMMIT = "6201e203d09599479a3b3450ed24fa81537ebc4e"
 
 # Tag classes for Rocq toolchain configuration
 _RocqToolchainTag = tag_class(
