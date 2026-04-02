@@ -95,22 +95,15 @@ jobs:
         bazel build @rocq_of_rust_source//:rocq_of_rust_main
         echo "RocqOfRust library built"
 
-    - name: Build example proofs
+    - name: Run tests
       run: |
-        echo "Building example proofs..."
-        bazel build //examples/rust_to_rocq:point_proofs
-        echo "Example proofs verified"
-
-    - name: Build advanced example
-      run: |
-        echo "Building advanced Rust features example..."
-        bazel build //examples/rust_to_rocq:advanced_verified
-        echo "Advanced example verified"
+        echo "Running all tests..."
+        bazel test //examples/rust_to_rocq:all //tests:all --test_output=errors
+        echo "All tests passed"
 
     - name: Collect verified artifacts
       run: |
         mkdir -p verified-artifacts
-        # Copy compiled proof files
         find bazel-bin/examples -name "*.vo" -exec cp {} verified-artifacts/ \;
         find bazel-bin/examples -name "*.v" -exec cp {} verified-artifacts/ \;
         ls -la verified-artifacts/
@@ -155,17 +148,11 @@ jobs:
         restore-keys: |
           bazel-build-${{ runner.os }}-
 
-    - name: Build example proofs
+    - name: Run tests
       run: |
-        echo "Building example proofs on macOS..."
-        bazel build //examples/rust_to_rocq:point_proofs
-        echo "Example proofs verified on macOS"
-
-    - name: Build advanced example
-      run: |
-        echo "Building advanced Rust features example..."
-        bazel build //examples/rust_to_rocq:advanced_verified
-        echo "Advanced example verified"
+        echo "Running all tests on macOS..."
+        bazel test //examples/rust_to_rocq:all //tests:all --test_output=errors
+        echo "All tests passed on macOS"
 
     - name: Collect verified artifacts
       run: |
