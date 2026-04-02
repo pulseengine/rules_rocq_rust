@@ -1,0 +1,71 @@
+# Integration tests for rules_rocq_rust
+#
+# These tests verify the full Rust → Rocq translation and compilation pipeline.
+
+load("@rules_rocq_rust//coq_of_rust:defs.bzl", "coq_of_rust_library", "rocq_rust_verified_library")
+load("@rules_rocq_rust//rocq:defs.bzl", "rocq_proof_test")
+
+# =============================================
+# Test 1: Minimal translation + compilation
+# =============================================
+# Verifies the simplest possible Rust file translates and compiles.
+
+rocq_rust_verified_library(
+    name = "minimal_verified",
+    rust_sources = ["minimal.rs"],
+    edition = "2021",
+    extra_flags = ["-impredicative-set"],
+)
+
+rocq_proof_test(
+    name = "minimal_test",
+    srcs = [],
+    deps = [":minimal_verified"],
+)
+
+# =============================================
+# Test 2: Enum translation
+# =============================================
+# Verifies enum variants (unit, tuple) translate correctly.
+
+rocq_rust_verified_library(
+    name = "enums_verified",
+    rust_sources = ["enums.rs"],
+    edition = "2021",
+    extra_flags = ["-impredicative-set"],
+)
+
+rocq_proof_test(
+    name = "enums_test",
+    srcs = [],
+    deps = [":enums_verified"],
+)
+
+# =============================================
+# Test 3: Impl methods
+# =============================================
+# Verifies struct with impl block translates correctly.
+
+rocq_rust_verified_library(
+    name = "impl_methods_verified",
+    rust_sources = ["impl_methods.rs"],
+    edition = "2021",
+    extra_flags = ["-impredicative-set"],
+)
+
+rocq_proof_test(
+    name = "impl_methods_test",
+    srcs = [],
+    deps = [":impl_methods_verified"],
+)
+
+# =============================================
+# Test 4: Translation step only
+# =============================================
+# Verifies coq_of_rust_library produces .v output without compilation.
+
+coq_of_rust_library(
+    name = "minimal_translated",
+    rust_sources = ["minimal.rs"],
+    edition = "2021",
+)

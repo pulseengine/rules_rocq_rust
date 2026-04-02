@@ -5,3 +5,4 @@ bazel-testlogs
 bazel-loom
 .claude/
 MODULE.bazel.lock
+third_party/
