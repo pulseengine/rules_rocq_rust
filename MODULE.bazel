@@ -13,7 +13,7 @@ module(
 )
 
 # Core dependencies
-bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 
 # Note: rocq-of-rust is built with cargo directly in the repository rule
@@ -25,7 +25,7 @@ bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_nixpkgs_core", version = "0.13.0")
 
 # Development dependencies
-bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
+bazel_dep(name = "buildifier_prebuilt", version = "8.5.1", dev_dependency = True)
 
 # Configure nixpkgs repository for standalone development/testing
 # NOTE: This is dev_dependency=True so it doesn't conflict with root module
