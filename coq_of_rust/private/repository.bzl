@@ -1,7 +1,8 @@
 """Repository rule for downloading and building rocq-of-rust.
 
 This rule downloads the rocq-of-rust source and builds it using cargo nightly.
-Building with cargo directly avoids crate_universe issues with edition2024 crates.
+The Rust nightly toolchain is downloaded hermetically from static.rust-lang.org,
+so no host rustup installation is required.
 """
 
 # Pinned rocq-of-rust version for reproducibility
@@ -9,6 +10,135 @@ _DEFAULT_COMMIT = "858907dbee116c51d7c6e87511bf5f92d6432ba4"
 _DEFAULT_SHA256 = "2fcfb09c3d14091f021b3aa7876ada55a29708c7f27f6646d3ebee162975bf61"
 _DEFAULT_REPO = "https://github.com/formal-land/rocq-of-rust"
 _DEFAULT_NIGHTLY = "nightly-2024-12-07"
+
+# Map (os_name, arch) to Rust platform triple for hermetic downloads.
+# os_name comes from repository_ctx.os.name (lowercased),
+# arch comes from repository_ctx.os.arch.
+_RUST_PLATFORM_MAP = {
+    ("mac os x", "aarch64"): "aarch64-apple-darwin",
+    ("mac os x", "x86_64"): "x86_64-apple-darwin",
+    ("linux", "amd64"): "x86_64-unknown-linux-gnu",
+    ("linux", "x86_64"): "x86_64-unknown-linux-gnu",
+    ("linux", "aarch64"): "aarch64-unknown-linux-gnu",
+}
+
+def _detect_rust_platform(repository_ctx):
+    """Detect the host platform as a Rust triple."""
+    os_name = repository_ctx.os.name.lower()
+    os_arch = repository_ctx.os.arch
+    for (os_key, arch_key), triple in _RUST_PLATFORM_MAP.items():
+        if os_key in os_name and arch_key == os_arch:
+            return triple
+    return None
+
+def _download_rust_nightly(repository_ctx, rust_nightly, platform):
+    """Download Rust nightly components hermetically and merge into rust_sysroot/.
+
+    Downloads rustc, cargo, rust-std, and rustc-dev from static.rust-lang.org.
+    This mirrors the approach used in rules_verus for hermetic Rust sysroot setup.
+    Returns the absolute path to rust_sysroot/, or None on failure.
+    """
+
+    # Extract date from nightly version (e.g., "nightly-2024-12-07" -> "2024-12-07")
+    nightly_date = rust_nightly.replace("nightly-", "")
+    base_url = "https://static.rust-lang.org/dist/{}".format(nightly_date)
+
+    # 1. Download rustc (compiler binary + libLLVM + librustc_driver)
+    repository_ctx.report_progress("Downloading rustc nightly ({})".format(nightly_date))
+    repository_ctx.download_and_extract(
+        url = "{}/rustc-nightly-{}.tar.xz".format(base_url, platform),
+        output = "rust_sysroot",
+        stripPrefix = "rustc-nightly-{}/rustc".format(platform),
+    )
+
+    # 2. Download cargo
+    repository_ctx.report_progress("Downloading cargo nightly")
+    repository_ctx.download_and_extract(
+        url = "{}/cargo-nightly-{}.tar.xz".format(base_url, platform),
+        output = "cargo_tmp",
+        stripPrefix = "cargo-nightly-{}/cargo".format(platform),
+    )
+    repository_ctx.execute(["cp", "-R", "cargo_tmp/bin/.", "rust_sysroot/bin/"])
+    repository_ctx.execute(["rm", "-rf", "cargo_tmp"])
+
+    # 3. Download rust-std (libstd, libcore, liballoc, etc.)
+    repository_ctx.report_progress("Downloading rust-std nightly")
+    repository_ctx.download_and_extract(
+        url = "{}/rust-std-nightly-{}.tar.xz".format(base_url, platform),
+        output = "rust_std_tmp",
+        stripPrefix = "rust-std-nightly-{}/rust-std-{}".format(platform, platform),
+    )
+    repository_ctx.execute(["cp", "-R", "rust_std_tmp/lib/rustlib/.", "rust_sysroot/lib/rustlib/"])
+    repository_ctx.execute(["rm", "-rf", "rust_std_tmp"])
+
+    # 4. Download rustc-dev (for rustc_private crate linking)
+    repository_ctx.report_progress("Downloading rustc-dev nightly")
+    repository_ctx.download_and_extract(
+        url = "{}/rustc-dev-nightly-{}.tar.xz".format(base_url, platform),
+        output = "rustc_dev_tmp",
+        stripPrefix = "rustc-dev-nightly-{}/rustc-dev".format(platform),
+    )
+    repository_ctx.execute(["cp", "-R", "rustc_dev_tmp/lib/rustlib/.", "rust_sysroot/lib/rustlib/"])
+    repository_ctx.execute(["rm", "-rf", "rustc_dev_tmp"])
+
+    # Make binaries executable
+    repository_ctx.execute(["chmod", "+x", "rust_sysroot/bin/cargo"])
+    repository_ctx.execute(["chmod", "+x", "rust_sysroot/bin/rustc"])
+
+    # On macOS, remove quarantine attributes
+    if "mac" in repository_ctx.os.name.lower():
+        repository_ctx.execute(["xattr", "-cr", "rust_sysroot"], timeout = 60)
+
+    return str(repository_ctx.path("rust_sysroot"))
+
+def _setup_rust_toolchain(repository_ctx, rust_nightly):
+    """Set up Rust nightly toolchain, trying hermetic download first, then rustup fallback.
+
+    Returns (cargo_path, sysroot_path) or (None, None) on failure.
+    """
+    platform = _detect_rust_platform(repository_ctx)
+
+    # Try hermetic download first (preferred — no host dependency)
+    if platform:
+        repository_ctx.report_progress("Downloading hermetic Rust nightly for {}".format(platform))
+        sysroot = _download_rust_nightly(repository_ctx, rust_nightly, platform)
+        if sysroot and repository_ctx.path("rust_sysroot/bin/cargo").exists:
+            cargo = str(repository_ctx.path("rust_sysroot/bin/cargo"))
+            repository_ctx.report_progress("Using hermetic Rust nightly sysroot")
+            return cargo, sysroot
+        print("Warning: Hermetic Rust download incomplete, trying rustup fallback")
+    else:
+        print("Warning: Unknown platform {}/{}, trying rustup fallback".format(
+            repository_ctx.os.name,
+            repository_ctx.os.arch,
+        ))
+
+    # Fallback: use host rustup
+    rustup = repository_ctx.which("rustup")
+    cargo = repository_ctx.which("cargo")
+    if not cargo:
+        return None, None
+
+    if rustup:
+        repository_ctx.report_progress("Installing Rust nightly toolchain via rustup")
+        repository_ctx.execute(
+            ["rustup", "toolchain", "install", rust_nightly],
+            timeout = 600,
+        )
+        repository_ctx.execute(
+            ["rustup", "component", "add", "rustc-dev", "rust-src", "--toolchain", rust_nightly],
+            timeout = 300,
+        )
+
+        # Detect sysroot for LIBRARY_PATH (fixes #24)
+        sysroot_result = repository_ctx.execute(
+            ["rustup", "run", rust_nightly, "rustc", "--print", "sysroot"],
+            timeout = 60,
+        )
+        sysroot = sysroot_result.stdout.strip() if sysroot_result.return_code == 0 else ""
+        return str(cargo), sysroot
+
+    return str(cargo), ""
 
 def _rocq_of_rust_source_impl(repository_ctx):
     """Download and build rocq-of-rust from source."""
@@ -38,59 +168,46 @@ def _rocq_of_rust_source_impl(repository_ctx):
 
     repository_ctx.download_and_extract(**download_kwargs)
 
-    # Check for cargo/rustup
-    cargo = repository_ctx.which("cargo")
-    rustup = repository_ctx.which("rustup")
+    # Set up Rust nightly toolchain (hermetic download or rustup fallback)
+    cargo, sysroot = _setup_rust_toolchain(repository_ctx, rust_nightly)
 
     if not cargo:
-        _create_placeholder(repository_ctx, "cargo not found")
+        _create_placeholder(repository_ctx, "cargo not found (no hermetic download and no host cargo)")
         return
-
-    # Install nightly toolchain with required components
-    if rustup:
-        repository_ctx.report_progress("Installing Rust nightly toolchain")
-        repository_ctx.execute(
-            ["rustup", "toolchain", "install", rust_nightly],
-            timeout = 600,
-        )
-        # Add rustc-dev and rust-src components for rustc_private
-        repository_ctx.execute(
-            ["rustup", "component", "add", "rustc-dev", "rust-src", "--toolchain", rust_nightly],
-            timeout = 300,
-        )
 
     # Build rocq-of-rust with cargo nightly
     repository_ctx.report_progress("Building rocq-of-rust with cargo nightly")
 
-    # Get library paths for LLVM (needed for rustc_private linking)
-    # On Linux, LLVM libs are typically in /usr/lib/llvm-*/lib
-    # On macOS with Homebrew, they're in /opt/homebrew/lib or /usr/local/lib
+    # Set up library paths for LLVM (needed for rustc_private linking)
+    sysroot_lib = "{}/lib".format(sysroot) if sysroot else ""
     import_os = repository_ctx.os.environ
     library_path = import_os.get("LIBRARY_PATH", "")
     ld_library_path = import_os.get("LD_LIBRARY_PATH", "")
+    dyld_library_path = import_os.get("DYLD_LIBRARY_PATH", "")
 
-    # Add common LLVM library paths
-    llvm_paths = [
-        "/usr/lib/llvm-19/lib",
-        "/usr/lib/llvm-18/lib",
-        "/usr/lib/llvm-17/lib",
-        "/usr/lib/x86_64-linux-gnu",
-        "/opt/homebrew/lib",
-        "/usr/local/lib",
-    ]
-    for path in llvm_paths:
-        if repository_ctx.path(path).exists:
-            library_path = "{}:{}".format(path, library_path) if library_path else path
-            ld_library_path = "{}:{}".format(path, ld_library_path) if ld_library_path else path
+    # Prepend sysroot lib (contains libLLVM-*-rust-* needed for rustc_private)
+    if sysroot_lib and repository_ctx.path(sysroot_lib).exists:
+        library_path = "{}:{}".format(sysroot_lib, library_path) if library_path else sysroot_lib
+        ld_library_path = "{}:{}".format(sysroot_lib, ld_library_path) if ld_library_path else sysroot_lib
+        dyld_library_path = "{}:{}".format(sysroot_lib, dyld_library_path) if dyld_library_path else sysroot_lib
 
     build_env = {
         "CARGO_TERM_COLOR": "never",
         "LIBRARY_PATH": library_path,
         "LD_LIBRARY_PATH": ld_library_path,
+        "DYLD_LIBRARY_PATH": dyld_library_path,
     }
 
+    # If using hermetic sysroot, point cargo at the downloaded rustc
+    is_hermetic = repository_ctx.path("rust_sysroot/bin/cargo").exists
+    if is_hermetic:
+        build_env["RUSTC"] = str(repository_ctx.path("rust_sysroot/bin/rustc"))
+        build_args = [cargo, "build", "--release"]
+    else:
+        build_args = [cargo, "+{}".format(rust_nightly), "build", "--release"]
+
     build_result = repository_ctx.execute(
-        [str(cargo), "+{}".format(rust_nightly), "build", "--release"],
+        build_args,
         timeout = 1200,
         environment = build_env,
     )
@@ -98,6 +215,8 @@ def _rocq_of_rust_source_impl(repository_ctx):
     if build_result.return_code != 0:
         print("Build output: {}".format(build_result.stdout))
         print("Build error: {}".format(build_result.stderr))
+        print("LIBRARY_PATH was: {}".format(library_path))
+        print("Sysroot was: {}".format(sysroot if sysroot else "(not detected)"))
         _create_placeholder(repository_ctx, "cargo build failed")
         return
 
@@ -112,24 +231,11 @@ def _rocq_of_rust_source_impl(repository_ctx):
         _create_placeholder(repository_ctx, "binary not found after build")
         return
 
-    # Find rustc sysroot for library path (needed for rustc_private)
-    rustc = repository_ctx.which("rustc")
-    if rustup and rustc:
-        sysroot_result = repository_ctx.execute(
-            ["rustup", "run", rust_nightly, "rustc", "--print", "sysroot"],
-            timeout = 60,
-        )
-        sysroot = sysroot_result.stdout.strip() if sysroot_result.return_code == 0 else ""
-        if sysroot:
-            repository_ctx.report_progress("Found rustc sysroot: {}".format(sysroot))
-    else:
-        sysroot = ""
-
     if not sysroot:
         print("Warning: Could not find rustc sysroot, rocq-of-rust may fail at runtime")
 
     # Create wrapper script that sets library path
-    _create_wrapper_script(repository_ctx, binary_path, sysroot)
+    _create_wrapper_script(repository_ctx, binary_path, sysroot, is_hermetic)
 
     # Generate BUILD.bazel
     _generate_build_file(repository_ctx, "bin/rocq-of-rust", binary_path, use_real_library)
@@ -179,15 +285,38 @@ def _trim_rocq_library(repository_ctx):
         if dir_path.exists:
             repository_ctx.execute(["rm", "-rf", str(dir_path)])
 
-def _create_wrapper_script(repository_ctx, binary_path, sysroot):
+def _create_wrapper_script(repository_ctx, binary_path, sysroot, is_hermetic = False):
     """Create wrapper script that sets library path for rustc_private."""
 
     repository_ctx.execute(["mkdir", "-p", "bin"])
 
-    # Wrapper script that sets library path before invoking the real binary
-    wrapper = '''#!/bin/bash
+    if is_hermetic:
+        # Hermetic mode: sysroot is inside the repository, use relative path
+        wrapper = '''#!/bin/bash
 # Wrapper for rocq-of-rust that sets library path for rustc_private
-# Generated by rules_rocq_rust
+# Generated by rules_rocq_rust (hermetic Rust sysroot)
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REAL_BINARY="$SCRIPT_DIR/../{binary_path}"
+SYSROOT="$SCRIPT_DIR/../rust_sysroot"
+
+# Add downloaded rustc to PATH
+export PATH="$SYSROOT/bin:$PATH"
+
+# Set library path for rustc_private crates
+export DYLD_LIBRARY_PATH="$SYSROOT/lib:$DYLD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="$SYSROOT/lib:$LD_LIBRARY_PATH"
+
+# Set sysroot for rustc
+export SYSROOT="$SYSROOT"
+
+exec "$REAL_BINARY" "$@"
+'''.format(binary_path = binary_path)
+    else:
+        # Rustup fallback: sysroot is an absolute host path
+        wrapper = '''#!/bin/bash
+# Wrapper for rocq-of-rust that sets library path for rustc_private
+# Generated by rules_rocq_rust (rustup fallback)
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REAL_BINARY="$SCRIPT_DIR/../{binary_path}"
@@ -220,10 +349,16 @@ load("@rules_rocq_rust//rocq:defs.bzl", "rocq_library")
 
 package(default_visibility = ["//visibility:public"])
 
-# Pre-built rocq-of-rust binary (wrapper + real binary)
+# Bundled Rust sysroot (hermetic nightly toolchain, needed at runtime)
+filegroup(
+    name = "rust_sysroot_files",
+    srcs = glob(["rust_sysroot/**"], allow_empty = True),
+)
+
+# Pre-built rocq-of-rust binary (wrapper + real binary + sysroot)
 filegroup(
     name = "rocq_of_rust",
-    srcs = ["{wrapper}", "{binary}"],
+    srcs = ["{wrapper}", "{binary}"] + glob(["rust_sysroot/lib/**", "rust_sysroot/bin/**"], allow_empty = True),
 )
 
 # ========================================
@@ -299,10 +434,10 @@ alias(
 
 package(default_visibility = ["//visibility:public"])
 
-# Pre-built rocq-of-rust binary (wrapper + real binary)
+# Pre-built rocq-of-rust binary (wrapper + real binary + sysroot)
 filegroup(
     name = "rocq_of_rust",
-    srcs = ["{wrapper}", "{binary}"],
+    srcs = ["{wrapper}", "{binary}"] + glob(["rust_sysroot/lib/**", "rust_sysroot/bin/**"], allow_empty = True),
 )
 
 # RocqOfRust stub library sources
@@ -325,13 +460,10 @@ def _create_placeholder(repository_ctx, reason):
         fail("""
 rocq-of-rust build failed: {}
 
-To fix this, ensure you have:
+The Rust nightly toolchain is normally downloaded hermetically from static.rust-lang.org.
+If hermetic download failed, ensure you have network access or install manually:
 1. Rust nightly toolchain: rustup toolchain install nightly-2024-12-07
 2. Required components: rustup component add rustc-dev rust-src --toolchain nightly-2024-12-07
-3. LIBRARY_PATH set to include Rust's lib directory (for LLVM)
-
-On macOS, this usually works automatically via nix.
-On Linux, you may need: export LIBRARY_PATH=$(rustc +nightly-2024-12-07 --print sysroot)/lib
 
 To use placeholder mode instead (not recommended for production):
   rocq_of_rust.toolchain(fail_on_error = False)
@@ -653,7 +785,15 @@ rocq_of_rust_source = repository_rule(
             doc = "Fail the build if rocq-of-rust cannot be built. Set to False to use placeholder.",
         ),
     },
-    doc = "Downloads and builds rocq-of-rust from source using cargo nightly.",
+    environ = [
+        "LIBRARY_PATH",
+        "LD_LIBRARY_PATH",
+        "DYLD_LIBRARY_PATH",
+        "PATH",
+    ],
+    doc = "Downloads and builds rocq-of-rust from source using cargo nightly. " +
+          "Rust nightly is downloaded hermetically from static.rust-lang.org, " +
+          "with fallback to host rustup if hermetic download is unavailable.",
 )
 
 rocq_of_rust_repository = rocq_of_rust_source
