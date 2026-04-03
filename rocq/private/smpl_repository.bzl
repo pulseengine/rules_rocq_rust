@@ -2,7 +2,7 @@
 
 smpl is a Coq/Rocq plugin providing an extensible tactic.
 The nixpkgs version only supports up to Coq 8.15, so we build from source
-for Rocq 9.0 compatibility using nix-build.
+for Rocq 9.0+ compatibility using nix-build.
 
 Source: https://github.com/uds-psl/smpl
 """
@@ -10,19 +10,19 @@ Source: https://github.com/uds-psl/smpl
 _SMPL_REPO = "https://github.com/uds-psl/smpl"
 _DEFAULT_BRANCH = "rocq-9.0"
 
-# Nix expression to build smpl
-_SMPL_NIX_EXPR = '''
-{ pkgs ? import <nixpkgs> {} }:
+def _smpl_nix_expr(rocq_nix_attr):
+    """Generate nix expression to build smpl against a specific Rocq version."""
+    return '''
+{{ pkgs ? import <nixpkgs> {{}} }}:
 
 let
-  # Use coq_9_0 to match the exact Rocq toolchain version
-  # coqPackages.coq may use a different default version
-  coq = pkgs.coq_9_0;
+  # Use version-specific Rocq to match the toolchain
+  coq = pkgs.{rocq_attr};
   ocamlPackages = coq.ocamlPackages;
 in
-pkgs.stdenv.mkDerivation {
+pkgs.stdenv.mkDerivation {{
   pname = "smpl";
-  version = "rocq-9.0";
+  version = "{rocq_attr}";'''.format(rocq_attr = rocq_nix_attr) + '''
 
   src = ./.;
 
@@ -99,8 +99,9 @@ def _smpl_source_impl(repository_ctx):
         _generate_sources_only_build(repository_ctx)
         return
 
-    # Write nix expression
-    repository_ctx.file("default.nix", _SMPL_NIX_EXPR)
+    # Write nix expression with version-specific Rocq attribute
+    rocq_nix_attr = repository_ctx.attr.rocq_nix_attr
+    repository_ctx.file("default.nix", _smpl_nix_expr(rocq_nix_attr))
 
     # Build with nix-build using pinned nixpkgs commit for reproducibility
     repository_ctx.report_progress("Building smpl with nix-build (nixpkgs {})".format(nixpkgs_commit[:12]))
@@ -283,6 +284,10 @@ smpl_source = repository_rule(
             default = "6201e203d09599479a3b3450ed24fa81537ebc4e",
             doc = "Nixpkgs commit hash for reproducible builds",
         ),
+        "rocq_nix_attr": attr.string(
+            default = "coq_9_1",
+            doc = "Nixpkgs attribute for the Rocq compiler (e.g., 'coq_9_1', 'coq_9_0')",
+        ),
     },
-    doc = "Downloads and builds smpl from source for Rocq 9.0 using nix.",
+    doc = "Downloads and builds smpl from source for Rocq 9.0+ using nix.",
 )

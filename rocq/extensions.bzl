@@ -331,6 +331,7 @@ import (builtins.fetchTarball {{
         smpl_source(
             name = "rocq_smpl",
             branch = "rocq-9.0",
+            rocq_nix_attr = rocq_attr,
         )
 
     # Return extension metadata (reproducible for caching)
