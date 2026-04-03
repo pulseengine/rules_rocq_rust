@@ -280,7 +280,7 @@ smpl_source = repository_rule(
             doc = "SHA256 of the source archive",
         ),
         "nixpkgs_commit": attr.string(
-            default = "aca4d95fce4914b3892661bcb80b8087293536c6",
+            default = "6201e203d09599479a3b3450ed24fa81537ebc4e",
             doc = "Nixpkgs commit hash for reproducible builds",
         ),
     },
