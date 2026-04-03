@@ -1,7 +1,7 @@
 """Module extensions for using rules_rocq with bzlmod.
 
 Provides Rocq/Coq toolchain setup using nixpkgs for hermetic builds.
-Supports Rocq 9.0.1+ and includes required external packages for rocq-of-rust.
+Supports Rocq 9.0+ and includes required external packages for rocq-of-rust.
 
 This extension creates its own nixpkgs repository internally for bzlmod compatibility.
 """
@@ -9,7 +9,7 @@ This extension creates its own nixpkgs repository internally for bzlmod compatib
 load("@rules_nixpkgs_core//:nixpkgs.bzl", "nixpkgs_package", "nixpkgs_local_repository")
 load("//rocq/private:smpl_repository.bzl", "smpl_source")
 
-# Default nixpkgs commit (nixos-unstable with Rocq 9.0.1)
+# Default nixpkgs commit (nixos-unstable with Rocq 9.1.1)
 _DEFAULT_NIXPKGS_COMMIT = "6201e203d09599479a3b3450ed24fa81537ebc4e"
 
 # Tag classes for Rocq toolchain configuration
@@ -17,8 +17,8 @@ _RocqToolchainTag = tag_class(
     doc = "Tags for defining Rocq toolchains",
     attrs = {
         "version": attr.string(
-            doc = "Rocq/Coq version to use (e.g., '9.0', '8.20')",
-            default = "9.0",
+            doc = "Rocq/Coq version to use (e.g., '9.1', '9.0', '8.20')",
+            default = "9.1",
         ),
         "strategy": attr.string(
             doc = "Tool acquisition strategy: 'nix' for hermetic nixpkgs",
@@ -32,18 +32,32 @@ _RocqToolchainTag = tag_class(
     },
 )
 
+# Map Rocq/Coq version to nixpkgs attribute paths.
+# Each entry maps to (compiler_attr, coqPackages_set) so dependencies
+# are resolved from the correct version-specific package set.
+_VERSION_MAP = {
+    "9.1": ("coq_9_1", "coqPackages_9_1"),
+    "9.0": ("coq_9_0", "coqPackages_9_0"),
+    "8.20": ("coq_8_20", "coqPackages_8_20"),
+    "8.19": ("coq_8_19", "coqPackages_8_19"),
+    "8.18": ("coq_8_18", "coqPackages_8_18"),
+    "8.17": ("coq_8_17", "coqPackages_8_17"),
+    "8.16": ("coq_8_16", "coqPackages_8_16"),
+}
+
 def _get_rocq_attr(version):
-    """Map Rocq/Coq version to nixpkgs attribute path."""
-    version_map = {
-        "9.0": "coq_9_0",
-        "8.20": "coq_8_20",
-        "8.19": "coq_8_19",
-        "8.18": "coq_8_18",
-        "8.17": "coq_8_17",
-        "8.16": "coq_8_16",
-        "latest": "coq",
-    }
-    return version_map.get(version, "coq_9_0")
+    """Map Rocq/Coq version to nixpkgs compiler attribute path."""
+    entry = _VERSION_MAP.get(version)
+    if entry:
+        return entry[0]
+    return "coq_9_1"
+
+def _get_coq_packages(version):
+    """Map Rocq/Coq version to nixpkgs coqPackages set name."""
+    entry = _VERSION_MAP.get(version)
+    if entry:
+        return entry[1]
+    return "coqPackages_9_1"
 
 # BUILD file content for the main Rocq toolchain package
 # Note: For Rocq 9.0+, the stdlib is a separate package (@rocq_stdlib)
@@ -205,8 +219,8 @@ filegroup(
 )
 '''
 
-# BUILD file for Rocq stdlib (separate from rocq-core in 9.0)
-# Stdlib is at lib/coq/9.0/user-contrib/Stdlib
+# BUILD file for Rocq stdlib (separate from rocq-core in 9.0+)
+# Stdlib is at lib/coq/{version}/user-contrib/Stdlib
 _STDLIB_BUILD_FILE = '''
 package(default_visibility = ["//visibility:public"])
 
@@ -245,10 +259,11 @@ def _rocq_impl(module_ctx):
         rocq_version = config.version
         with_deps = config.with_rocq_of_rust_deps
     else:
-        rocq_version = "9.0"
+        rocq_version = "9.1"
         with_deps = True
 
     rocq_attr = _get_rocq_attr(rocq_version)
+    coq_packages = _get_coq_packages(rocq_version)
 
     # Create internal nixpkgs repository for bzlmod compatibility
     # Extensions can't see repositories from other modules, so we define our own
@@ -273,13 +288,14 @@ import (builtins.fetchTarball {{
         build_file_content = _ROCQ_BUILD_FILE,
     )
 
-    # Create Rocq stdlib (needed for Rocq 9.0)
-    # Rocq 9.0 has separate stdlib package
-    if rocq_version == "9.0":
+    # Create Rocq stdlib (separate package for Rocq 9.0+)
+    if rocq_version in ("9.0", "9.1", "9.2"):
+        # Use version-specific rocqPackages set for stdlib
+        stdlib_attr = "rocqPackages_{}.stdlib".format(rocq_version.replace(".", "_"))
         nixpkgs_package(
             name = "rocq_stdlib",
             repository = nixpkgs_repo,
-            attribute_path = "rocqPackages.stdlib",
+            attribute_path = stdlib_attr,
             build_file_content = _STDLIB_BUILD_FILE,
         )
 
@@ -289,7 +305,7 @@ import (builtins.fetchTarball {{
         nixpkgs_package(
             name = "rocq_coqutil",
             repository = nixpkgs_repo,
-            attribute_path = "coqPackages.coqutil",
+            attribute_path = "{}.coqutil".format(coq_packages),
             build_file_content = _COQUTIL_BUILD_FILE,
         )
 
@@ -297,7 +313,7 @@ import (builtins.fetchTarball {{
         nixpkgs_package(
             name = "rocq_hammer",
             repository = nixpkgs_repo,
-            attribute_path = "coqPackages.coq-hammer",
+            attribute_path = "{}.coq-hammer".format(coq_packages),
             build_file_content = _HAMMER_BUILD_FILE,
         )
 
@@ -305,12 +321,13 @@ import (builtins.fetchTarball {{
         nixpkgs_package(
             name = "rocq_hammer_tactics",
             repository = nixpkgs_repo,
-            attribute_path = "coqPackages.coq-hammer-tactics",
+            attribute_path = "{}.coq-hammer-tactics".format(coq_packages),
             build_file_content = _HAMMER_TACTICS_BUILD_FILE,
         )
 
-        # smpl - extensible simplification tactic (built from source for Rocq 9.0)
-        # The nixpkgs version only supports up to Coq 8.15
+        # smpl - extensible simplification tactic (built from source)
+        # The nixpkgs version only supports up to Coq 8.15, so we build from
+        # the rocq-9.0 branch which declares rocq-core >= 9.0 (works with 9.1+)
         smpl_source(
             name = "rocq_smpl",
             branch = "rocq-9.0",
