@@ -62,7 +62,7 @@ register_toolchains("@rocq_toolchains//:all")
 # rocq-of-rust toolchain extension - translates Rust to Rocq
 rocq_of_rust = use_extension("//coq_of_rust:extensions.bzl", "rocq_of_rust")
 rocq_of_rust.toolchain(
-    # Uses pinned default: 877dd65142b3f9b92340b9b7a91a35f19f0f494e
+    # Uses pinned default: 877dd65142b3c5217ce6ae043ff49c8f540eb8a5
     use_real_library = True,  # Full library with coqutil + hammer + smpl
 )
 use_repo(rocq_of_rust, "rocq_of_rust_toolchains", "rocq_of_rust_source")

@@ -6,8 +6,8 @@ so no host rustup installation is required.
 """
 
 # Pinned rocq-of-rust version for reproducibility
-_DEFAULT_COMMIT = "877dd65142b3f9b92340b9b7a91a35f19f0f494e"
-_DEFAULT_SHA256 = "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed"
+_DEFAULT_COMMIT = "877dd65142b3c5217ce6ae043ff49c8f540eb8a5"
+_DEFAULT_SHA256 = "5185c944c4b8a9d3279427e905269f5a4efa3e69981f6e6a185b3d12cbb2b1e4"
 _DEFAULT_REPO = "https://github.com/formal-land/rocq-of-rust"
 _DEFAULT_NIGHTLY = "nightly-2024-12-07"
 
