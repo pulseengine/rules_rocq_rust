@@ -11,6 +11,7 @@ jobs:
   # Multi-platform verification
   verify-multiplatform:
     name: Verify Rules (${{ matrix.os }})
+    # Stays on hosted: needs Bazel (not on smithy) and macOS in matrix (smithy is Linux-only).
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

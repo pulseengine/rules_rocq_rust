@@ -10,6 +10,7 @@ on:
 jobs:
   quick-test:
     name: Quick Test
+    # Stays on ubuntu-latest: uses bazelbuild/setup-bazelisk and runs bazel; Bazel not on smithy.
     runs-on: ubuntu-latest
     
     steps:
