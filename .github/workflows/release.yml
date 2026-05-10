@@ -9,6 +9,7 @@ on:
 jobs:
   release:
     name: Create Release
+    # Stays on ubuntu-latest: build step runs `bazel build`; Bazel not on smithy.
     runs-on: ubuntu-latest
     
     steps:

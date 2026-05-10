@@ -15,6 +15,7 @@ jobs:
   # Basic loading verification (fast, no nix required)
   verify-rules:
     name: Verify Rules Load
+    # Stays on ubuntu-latest: uses bazelbuild/setup-bazelisk; Bazel is not pre-installed on smithy.
     runs-on: ubuntu-latest
 
     steps:
@@ -42,6 +43,7 @@ jobs:
   # Full build with nix toolchain (Linux)
   build:
     name: Build Example (Linux)
+    # Stays on ubuntu-latest: needs Nix + Bazel + Rocq toolchain, none of which are on smithy.
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -122,6 +124,7 @@ jobs:
   # macOS build
   build-macos:
     name: Build Example (macOS)
+    # Stays on macos-latest: smithy fleet is Linux-only.
     runs-on: macos-latest
     permissions:
       id-token: write
@@ -175,7 +178,7 @@ jobs:
   # Buildifier check
   buildifier:
     name: Buildifier Check
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, light]
 
     steps:
     - name: Checkout repository
