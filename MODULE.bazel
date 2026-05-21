@@ -16,10 +16,12 @@ module(
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 
-# Note: rocq-of-rust is built with cargo directly in the repository rule
-# because it requires rustc_private (nightly internals) and crate_universe
-# can't handle edition2024 crates like archery 1.2.2.
-# No Bazel Rust rules needed - cargo handles the build.
+# rocq-of-rust is a Rust workspace built hermetically via rules_rust +
+# crate_universe (migration in progress -- see docs/rules_rust-migration.md).
+# The third-party dependency graph is pinned through the vendored Cargo.lock
+# under coq_of_rust/cargo/, which keeps archery at 1.2.0 (edition 2021) and so
+# avoids crate_universe's trouble with the edition-2024 archery 1.2.2.
+bazel_dep(name = "rules_rust", version = "0.70.0")
 
 # Nix integration for hermetic Coq/Rocq toolchain
 bazel_dep(name = "rules_nixpkgs_core", version = "0.13.0")
@@ -58,6 +60,20 @@ use_repo(rocq, "rocq_toolchains", "rocq_stdlib", "rocq_coqutil", "rocq_hammer", 
 
 # Register Rocq toolchain
 register_toolchains("@rocq_toolchains//:all")
+
+# Third-party Rust crates for the rocq-of-rust build, resolved by crate_universe
+# from the vendored Cargo workspace under coq_of_rust/cargo/. Nothing consumes
+# @rocq_of_rust_crates yet -- the rust_binary targets land in a later migration
+# stage (see docs/rules_rust-migration.md).
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+crate.from_cargo(
+    name = "rocq_of_rust_crates",
+    cargo_lockfile = "//coq_of_rust/cargo:Cargo.lock",
+    # Only the workspace root Cargo.toml is needed; crate_universe discovers the
+    # `lib` and `cli` members from it.
+    manifests = ["//coq_of_rust/cargo:Cargo.toml"],
+)
+use_repo(crate, "rocq_of_rust_crates")
 
 # rocq-of-rust toolchain extension - translates Rust to Rocq
 rocq_of_rust = use_extension("//coq_of_rust:extensions.bzl", "rocq_of_rust")
