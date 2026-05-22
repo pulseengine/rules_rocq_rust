@@ -96,6 +96,21 @@ def download_rust_nightly(repository_ctx, rust_nightly, platform, output = "rust
     repository_ctx.execute(["cp", "-R", "rustc_dev_tmp/lib/rustlib/.", "{}/lib/rustlib/".format(output)])
     repository_ctx.execute(["rm", "-rf", "rustc_dev_tmp"])
 
+    # 5. Make libLLVM reachable by the linker. The `rustc` component ships
+    #    libLLVM-*-rust-* only in <output>/lib/, but when linking a
+    #    rustc_private binary rustc only puts lib/rustlib/<triple>/lib/ on the
+    #    linker search path -- so `-lLLVM-*-rust-*` fails to resolve there
+    #    (notably on Linux). Copy it alongside the rustc-dev crates. `cp -a`
+    #    preserves the linker-name symlink and its versioned target.
+    repository_ctx.execute([
+        "bash",
+        "-c",
+        "cp -a {out}/lib/libLLVM* {out}/lib/rustlib/{triple}/lib/ 2>/dev/null || true".format(
+            out = output,
+            triple = platform,
+        ),
+    ])
+
     # Make binaries executable.
     repository_ctx.execute(["chmod", "+x", "{}/bin/cargo".format(output)])
     repository_ctx.execute(["chmod", "+x", "{}/bin/rustc".format(output)])
