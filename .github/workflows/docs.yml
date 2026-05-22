@@ -31,7 +31,7 @@ jobs:
           "Features"
           "Quick Start"
           "Examples"
-          "Toolchain Management"
+          "Toolchain Contents"
           "License"
         )
         
@@ -46,8 +46,8 @@ jobs:
         
         # Check that README mentions key features
         required_features=(
-          "Rocq Platform Integration"
-          "coq-of-rust Support"
+          "Rocq"
+          "rocq-of-rust"
           "Bazel 8 bzlmod"
           "Hermetic Toolchains"
           "Cross-Platform"
