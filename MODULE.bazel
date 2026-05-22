@@ -77,13 +77,15 @@ use_repo(rust_nightly, "rocq_of_rust_rust_nightly")
 register_toolchains("@rocq_of_rust_rust_nightly//:rust_nightly")
 
 # Third-party Rust crates for the rocq-of-rust build, resolved by crate_universe
-# from the vendored Cargo workspace under coq_of_rust/cargo/. Nothing consumes
-# @rocq_of_rust_crates yet -- the rust_binary targets land in a later migration
-# stage (see docs/rules_rust-migration.md).
-# dev_dependency: rocq-of-rust's own crate graph is private to building
-# the translator. Without this, its from_cargo merges into a consumer's
-# shared crate_universe `@crates` hub and clobbers the consumer's crates.
-crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", dev_dependency = True)
+# from the vendored Cargo workspace under coq_of_rust/cargo/. Consumed by the
+# rust_library/rust_binary targets in //coq_of_rust/rocq_of_rust.
+#
+# NOT a dev_dependency: the rocq_of_rust toolchain (registered below, non-dev)
+# builds rocq-of-rust from these crates, so any module that consumes the
+# toolchain needs @rocq_of_rust_crates too. The explicit `name` keeps this a
+# distinct, isolated repo -- it does not merge into or clobber a consumer's
+# own crate_universe hub.
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
 crate.from_cargo(
     name = "rocq_of_rust_crates",
     cargo_lockfile = "//coq_of_rust/cargo:Cargo.lock",

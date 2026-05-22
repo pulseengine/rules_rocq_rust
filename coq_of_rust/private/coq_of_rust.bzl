@@ -115,10 +115,15 @@ def _coq_of_rust_library_impl(ctx):
         src_dir = src.dirname
         src_basename = src.basename
 
-        # Calculate how many levels up we need to go from src_dir to execroot
-        # e.g., "examples/rust_to_rocq" -> 2 levels up
-        depth = len(src_dir.split("/"))
-        prefix = "/".join([".."] * depth)
+        # `prefix` walks from src_dir back up to the exec root.
+        # e.g. dirname "examples/rust_to_rocq" -> "../..". A source in the root
+        # package has dirname "" or "." (depth 0) -> stay put (".") rather than
+        # mis-computing one level up.
+        if src_dir and src_dir != ".":
+            prefix = "/".join([".."] * len(src_dir.split("/")))
+        else:
+            src_dir = "."
+            prefix = "."
 
         # The translation action needs: the source, the rust_binary and its
         # runfiles, and the whole nightly sysroot (rustc + std libs).

@@ -110,9 +110,11 @@ package(default_visibility = ["//visibility:public"])
 
 rocq_of_rust_toolchain(
     name = "rocq_of_rust_toolchain_impl",
-    # The CLI rust_binary built hermetically by rules_rust (Stage 3).
-    rocq_of_rust_binary = "@rocq_of_rust_build//:rocq-of-rust",
-    # The RocqOfRust .v library, exposed from the same repo (Stage 4).
+    # The CLI rust_binary built hermetically by rules_rust. It lives in a
+    # checked-in package (not @rocq_of_rust_build) so it can reference
+    # @rocq_of_rust_crates -- see coq_of_rust/rocq_of_rust/BUILD.bazel.
+    rocq_of_rust_binary = "@rules_rocq_rust//coq_of_rust/rocq_of_rust:rocq-of-rust",
+    # The RocqOfRust .v library, exposed from the fetched-source repo (Stage 4).
     rocq_of_rust_lib = ["@rocq_of_rust_build//:rocq_of_rust_rocq_lib"],
     lib_include_path = "RocqOfRust",
     # Hermetic nightly sysroot (Stage 2). `rocq-of-rust translate` shells out

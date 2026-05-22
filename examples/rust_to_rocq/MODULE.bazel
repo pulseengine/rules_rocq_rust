@@ -19,13 +19,11 @@ local_path_override(
 # Nix integration (transitive dep from rules_rocq_rust, but root module must configure repo)
 bazel_dep(name = "rules_nixpkgs_core", version = "0.13.0")
 
-# rocq-of-rust is built hermetically via rules_rust (see
-# docs/rules_rust-migration.md). The rocq_of_rust extension below produces
-# @rocq_of_rust_build (rust_binary targets + the RocqOfRust .v library); that
-# build needs the hermetic Rust nightly toolchain and the third-party crates,
-# so this consuming module must instantiate those extensions too. They are
-# dev_dependency in rules_rocq_rust's own MODULE.bazel, hence not inherited.
-bazel_dep(name = "rules_rust", version = "0.70.0")
+# rules_rust, crate_universe, and the hermetic Rust nightly toolchain that the
+# rocq-of-rust build needs are all configured (and their toolchains registered)
+# by rules_rocq_rust's own MODULE.bazel. None are dev_dependency there, so this
+# consuming module inherits them -- it only configures nixpkgs and the Rocq /
+# rocq-of-rust toolchains it uses directly.
 
 nix_repo = use_extension(
     "@rules_nixpkgs_core//extensions:repository.bzl",
@@ -50,25 +48,6 @@ rocq.toolchain(
 )
 use_repo(rocq, "rocq_toolchains", "rocq_stdlib", "rocq_coqutil", "rocq_hammer", "rocq_hammer_tactics", "rocq_smpl")
 register_toolchains("@rocq_toolchains//:all")
-
-# Hermetic Rust nightly (+rustc-dev) toolchain for the rocq-of-rust build.
-# Required because Stage 4 builds rocq-of-rust as a rules_rust rust_binary and
-# the translation action consumes this toolchain's sysroot at runtime.
-rust_nightly = use_extension("@rules_rocq_rust//coq_of_rust:extensions.bzl", "rust_nightly_toolchain")
-rust_nightly.toolchain(
-    rust_nightly = "nightly-2024-12-07",
-)
-use_repo(rust_nightly, "rocq_of_rust_rust_nightly")
-register_toolchains("@rocq_of_rust_rust_nightly//:rust_nightly")
-
-# Third-party Rust crates for the rocq-of-rust build (crate_universe).
-crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
-crate.from_cargo(
-    name = "rocq_of_rust_crates",
-    cargo_lockfile = "@rules_rocq_rust//coq_of_rust/cargo:Cargo.lock",
-    manifests = ["@rules_rocq_rust//coq_of_rust/cargo:Cargo.toml"],
-)
-use_repo(crate, "rocq_of_rust_crates")
 
 # rocq-of-rust toolchain
 rocq_of_rust = use_extension("@rules_rocq_rust//coq_of_rust:extensions.bzl", "rocq_of_rust")
