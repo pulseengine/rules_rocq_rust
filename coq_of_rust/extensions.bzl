@@ -1,6 +1,7 @@
 """Module extensions for rocq-of-rust toolchain setup."""
 
 load("//coq_of_rust/private:repository.bzl", "rocq_of_rust_source")
+load("//coq_of_rust/private:rocq_of_rust_build.bzl", "rocq_of_rust_build")
 load("//coq_of_rust/private:rust_nightly.bzl", "DEFAULT_NIGHTLY")
 load("//coq_of_rust/private:rust_toolchain_repo.bzl", "rust_toolchain_repo")
 load("//coq_of_rust/private:toolchain.bzl", "rocq_of_rust_toolchain")
@@ -68,6 +69,16 @@ def _rocq_of_rust_impl(module_ctx):
         repo_kwargs["sha256"] = sha256
 
     rocq_of_rust_source(**repo_kwargs)
+
+    # Stage 3 of the rules_rust migration: build the rocq-of-rust binaries
+    # hermetically with rules_rust (see docs/rules_rust-migration.md). Coexists
+    # with rocq_of_rust_source until Stage 4 rewires the toolchain onto it.
+    build_kwargs = {"name": "rocq_of_rust_build"}
+    if commit:
+        build_kwargs["commit"] = commit
+    if sha256:
+        build_kwargs["sha256"] = sha256
+    rocq_of_rust_build(**build_kwargs)
 
     # Create toolchain repository
     _create_toolchain_repo(name = "rocq_of_rust_toolchains")

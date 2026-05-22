@@ -2889,7 +2889,7 @@
     "@@rules_rust+//crate_universe:extensions.bzl%crate": {
       "general": {
         "bzlTransitiveDigest": "CaZskTZNQ5cGoeczMDrSYMbuFPg9kOnbq6Az7N4eWb8=",
-        "usagesDigest": "tvb2YCJoGmAWd4juMmIFsnbPSbR8mIhM2MZg1vdHmjc=",
+        "usagesDigest": "sp68bJjjeMw4O2/Na7/eTrCkcfX2UIXzjhyi+jHGJoo=",
         "recordedFileInputs": {
           "@@//coq_of_rust/cargo/Cargo.lock": "328851a43e514eabfd3476330a1cd9cad699c5ab92c25a42a3c8f7b4980d5b1d",
           "@@//coq_of_rust/cargo/Cargo.toml": "55bcf58a4775acabb9ddee33981bee4d772f8057d8adc5cf0d953e40c274dd6f",
