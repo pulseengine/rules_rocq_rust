@@ -1,0 +1,30 @@
+# Verification targets for the hermetic Rust nightly + rustc-dev toolchain
+# (Stage 2 of the rules_rust migration -- see docs/rules_rust-migration.md).
+#
+# These do NOT use the vendored crate_universe workspace; they are stand-alone
+# smoke tests that the registered `@rocq_of_rust_rust_nightly` `rust_toolchain`
+# actually compiles Rust.
+
+load("@rules_rust//rust:defs.bzl", "rust_binary")
+
+package(default_visibility = ["//visibility:public"])
+
+# Trivial `fn main() {}` -- proves the toolchain builds ordinary Rust.
+rust_binary(
+    name = "hello",
+    srcs = ["hello.rs"],
+    edition = "2021",
+)
+
+# Stretch: a `rustc_private` driver stub. `extern crate rustc_driver` only
+# resolves if the rustc-dev crates are present in the toolchain sysroot
+# (the `rust_std` filegroup). Needs RUSTC_BOOTSTRAP=1 to enable the
+# nightly-gated `rustc_private` feature. Tagged `manual` so it is not pulled
+# into `//...` wildcard builds while Stage 3 wiring is still in progress.
+rust_binary(
+    name = "rustc_private_smoke",
+    srcs = ["rustc_private_smoke.rs"],
+    edition = "2021",
+    rustc_env = {"RUSTC_BOOTSTRAP": "1"},
+    tags = ["manual"],
+)

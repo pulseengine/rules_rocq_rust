@@ -1,6 +1,8 @@
 """Module extensions for rocq-of-rust toolchain setup."""
 
 load("//coq_of_rust/private:repository.bzl", "rocq_of_rust_source")
+load("//coq_of_rust/private:rust_nightly.bzl", "DEFAULT_NIGHTLY")
+load("//coq_of_rust/private:rust_toolchain_repo.bzl", "rust_toolchain_repo")
 load("//coq_of_rust/private:toolchain.bzl", "rocq_of_rust_toolchain")
 
 _RocqOfRustToolchainTag = tag_class(
@@ -110,5 +112,43 @@ rocq_of_rust = module_extension(
     implementation = _rocq_of_rust_impl,
     tag_classes = {
         "toolchain": _RocqOfRustToolchainTag,
+    },
+)
+
+# -----------------------------------------------------------------------------
+# Hermetic Rust nightly + rustc-dev toolchain (Stage 2 of the rules_rust
+# migration -- see docs/rules_rust-migration.md).
+# -----------------------------------------------------------------------------
+
+_RustNightlyToolchainTag = tag_class(
+    doc = "Configures the hermetic Rust nightly (+rustc-dev) rust_toolchain.",
+    attrs = {
+        "rust_nightly": attr.string(
+            doc = "Rust nightly version to download, e.g. 'nightly-2024-12-07'.",
+            default = DEFAULT_NIGHTLY,
+        ),
+    },
+)
+
+def _rust_nightly_toolchain_impl(module_ctx):
+    """Instantiate the hermetic nightly+rustc-dev rust_toolchain repository."""
+    rust_nightly = DEFAULT_NIGHTLY
+    for mod in module_ctx.modules:
+        for tag in mod.tags.toolchain:
+            rust_nightly = tag.rust_nightly
+
+    rust_toolchain_repo(
+        name = "rocq_of_rust_rust_nightly",
+        rust_nightly = rust_nightly,
+    )
+
+    return module_ctx.extension_metadata(reproducible = True)
+
+rust_nightly_toolchain = module_extension(
+    doc = "Hermetic Rust nightly (incl. rustc-dev) rules_rust toolchain " +
+          "for the rocq-of-rust build. See docs/rules_rust-migration.md.",
+    implementation = _rust_nightly_toolchain_impl,
+    tag_classes = {
+        "toolchain": _RustNightlyToolchainTag,
     },
 )

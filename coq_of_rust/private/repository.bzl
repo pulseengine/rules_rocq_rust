@@ -3,7 +3,17 @@
 This rule downloads the rocq-of-rust source and builds it using cargo nightly.
 The Rust nightly toolchain is downloaded hermetically from static.rust-lang.org,
 so no host rustup installation is required.
+
+NOTE: the hermetic nightly download + sysroot layout logic lives in
+`rust_nightly.bzl`; it is shared with the Stage 2 `rust_toolchain` repository
+rule (`rust_toolchain_repo.bzl`). See `docs/rules_rust-migration.md`.
 """
+
+load(
+    "//coq_of_rust/private:rust_nightly.bzl",
+    "detect_rust_platform",
+    "download_rust_nightly",
+)
 
 # Pinned rocq-of-rust version for reproducibility
 _DEFAULT_COMMIT = "877dd65142b3c5217ce6ae043ff49c8f540eb8a5"
@@ -11,85 +21,13 @@ _DEFAULT_SHA256 = "5185c944c4b8a9d3279427e905269f5a4efa3e69981f6e6a185b3d12cbb2b
 _DEFAULT_REPO = "https://github.com/formal-land/rocq-of-rust"
 _DEFAULT_NIGHTLY = "nightly-2024-12-07"
 
-# Map (os_name, arch) to Rust platform triple for hermetic downloads.
-# os_name comes from repository_ctx.os.name (lowercased),
-# arch comes from repository_ctx.os.arch.
-_RUST_PLATFORM_MAP = {
-    ("mac os x", "aarch64"): "aarch64-apple-darwin",
-    ("mac os x", "x86_64"): "x86_64-apple-darwin",
-    ("linux", "amd64"): "x86_64-unknown-linux-gnu",
-    ("linux", "x86_64"): "x86_64-unknown-linux-gnu",
-    ("linux", "aarch64"): "aarch64-unknown-linux-gnu",
-}
-
 def _detect_rust_platform(repository_ctx):
-    """Detect the host platform as a Rust triple."""
-    os_name = repository_ctx.os.name.lower()
-    os_arch = repository_ctx.os.arch
-    for (os_key, arch_key), triple in _RUST_PLATFORM_MAP.items():
-        if os_key in os_name and arch_key == os_arch:
-            return triple
-    return None
+    """Detect the host platform as a Rust triple (shared with rust_nightly.bzl)."""
+    return detect_rust_platform(repository_ctx)
 
 def _download_rust_nightly(repository_ctx, rust_nightly, platform):
-    """Download Rust nightly components hermetically and merge into rust_sysroot/.
-
-    Downloads rustc, cargo, rust-std, and rustc-dev from static.rust-lang.org.
-    This mirrors the approach used in rules_verus for hermetic Rust sysroot setup.
-    Returns the absolute path to rust_sysroot/, or None on failure.
-    """
-
-    # Extract date from nightly version (e.g., "nightly-2024-12-07" -> "2024-12-07")
-    nightly_date = rust_nightly.replace("nightly-", "")
-    base_url = "https://static.rust-lang.org/dist/{}".format(nightly_date)
-
-    # 1. Download rustc (compiler binary + libLLVM + librustc_driver)
-    repository_ctx.report_progress("Downloading rustc nightly ({})".format(nightly_date))
-    repository_ctx.download_and_extract(
-        url = "{}/rustc-nightly-{}.tar.xz".format(base_url, platform),
-        output = "rust_sysroot",
-        stripPrefix = "rustc-nightly-{}/rustc".format(platform),
-    )
-
-    # 2. Download cargo
-    repository_ctx.report_progress("Downloading cargo nightly")
-    repository_ctx.download_and_extract(
-        url = "{}/cargo-nightly-{}.tar.xz".format(base_url, platform),
-        output = "cargo_tmp",
-        stripPrefix = "cargo-nightly-{}/cargo".format(platform),
-    )
-    repository_ctx.execute(["cp", "-R", "cargo_tmp/bin/.", "rust_sysroot/bin/"])
-    repository_ctx.execute(["rm", "-rf", "cargo_tmp"])
-
-    # 3. Download rust-std (libstd, libcore, liballoc, etc.)
-    repository_ctx.report_progress("Downloading rust-std nightly")
-    repository_ctx.download_and_extract(
-        url = "{}/rust-std-nightly-{}.tar.xz".format(base_url, platform),
-        output = "rust_std_tmp",
-        stripPrefix = "rust-std-nightly-{}/rust-std-{}".format(platform, platform),
-    )
-    repository_ctx.execute(["cp", "-R", "rust_std_tmp/lib/rustlib/.", "rust_sysroot/lib/rustlib/"])
-    repository_ctx.execute(["rm", "-rf", "rust_std_tmp"])
-
-    # 4. Download rustc-dev (for rustc_private crate linking)
-    repository_ctx.report_progress("Downloading rustc-dev nightly")
-    repository_ctx.download_and_extract(
-        url = "{}/rustc-dev-nightly-{}.tar.xz".format(base_url, platform),
-        output = "rustc_dev_tmp",
-        stripPrefix = "rustc-dev-nightly-{}/rustc-dev".format(platform),
-    )
-    repository_ctx.execute(["cp", "-R", "rustc_dev_tmp/lib/rustlib/.", "rust_sysroot/lib/rustlib/"])
-    repository_ctx.execute(["rm", "-rf", "rustc_dev_tmp"])
-
-    # Make binaries executable
-    repository_ctx.execute(["chmod", "+x", "rust_sysroot/bin/cargo"])
-    repository_ctx.execute(["chmod", "+x", "rust_sysroot/bin/rustc"])
-
-    # On macOS, remove quarantine attributes
-    if "mac" in repository_ctx.os.name.lower():
-        repository_ctx.execute(["xattr", "-cr", "rust_sysroot"], timeout = 60)
-
-    return str(repository_ctx.path("rust_sysroot"))
+    """Download Rust nightly into rust_sysroot/ (shared with rust_nightly.bzl)."""
+    return download_rust_nightly(repository_ctx, rust_nightly, platform, output = "rust_sysroot")
 
 def _setup_rust_toolchain(repository_ctx, rust_nightly):
     """Set up Rust nightly toolchain, trying hermetic download first, then rustup fallback.

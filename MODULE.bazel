@@ -61,6 +61,21 @@ use_repo(rocq, "rocq_toolchains", "rocq_stdlib", "rocq_coqutil", "rocq_hammer", 
 # Register Rocq toolchain
 register_toolchains("@rocq_toolchains//:all")
 
+# Hermetic Rust nightly (+rustc-dev) toolchain for the rocq-of-rust build.
+# rocq-of-rust-rustc is a rustc_private driver, so the toolchain sysroot must
+# carry the rustc-dev crates; rules_rust's stock `rust` extension does not ship
+# them. See docs/rules_rust-migration.md (Stage 2).
+rust_nightly = use_extension("//coq_of_rust:extensions.bzl", "rust_nightly_toolchain")
+rust_nightly.toolchain(
+    rust_nightly = "nightly-2024-12-07",
+)
+use_repo(rust_nightly, "rocq_of_rust_rust_nightly")
+
+# Register the hermetic nightly toolchain. It carries platform constraints so
+# it only resolves on a matching host; rules_rust's own toolchains (if any) are
+# unaffected.
+register_toolchains("@rocq_of_rust_rust_nightly//:rust_nightly")
+
 # Third-party Rust crates for the rocq-of-rust build, resolved by crate_universe
 # from the vendored Cargo workspace under coq_of_rust/cargo/. Nothing consumes
 # @rocq_of_rust_crates yet -- the rust_binary targets land in a later migration
