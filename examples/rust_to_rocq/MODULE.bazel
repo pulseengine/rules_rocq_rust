@@ -54,5 +54,5 @@ rocq_of_rust = use_extension("@rules_rocq_rust//coq_of_rust:extensions.bzl", "ro
 rocq_of_rust.toolchain(
     use_real_library = True,
 )
-use_repo(rocq_of_rust, "rocq_of_rust_toolchains", "rocq_of_rust_source", "rocq_of_rust_build")
+use_repo(rocq_of_rust, "rocq_of_rust_toolchains", "rocq_of_rust_build")
 register_toolchains("@rocq_of_rust_toolchains//:toolchain")

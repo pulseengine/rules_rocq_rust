@@ -101,7 +101,7 @@ rocq_of_rust.toolchain(
     # Uses pinned default: 877dd65142b3c5217ce6ae043ff49c8f540eb8a5
     use_real_library = True,  # Full library with coqutil + hammer + smpl
 )
-use_repo(rocq_of_rust, "rocq_of_rust_toolchains", "rocq_of_rust_source", "rocq_of_rust_build")
+use_repo(rocq_of_rust, "rocq_of_rust_toolchains", "rocq_of_rust_build")
 
 # Register rocq-of-rust toolchain
 register_toolchains("@rocq_of_rust_toolchains//:toolchain")

@@ -1,6 +1,5 @@
 """Module extensions for rocq-of-rust toolchain setup."""
 
-load("//coq_of_rust/private:repository.bzl", "rocq_of_rust_source")
 load("//coq_of_rust/private:rocq_of_rust_build.bzl", "rocq_of_rust_build")
 load("//coq_of_rust/private:rust_nightly.bzl", "DEFAULT_NIGHTLY")
 load("//coq_of_rust/private:rust_toolchain_repo.bzl", "rust_toolchain_repo")
@@ -35,44 +34,22 @@ _RocqOfRustToolchainTag = tag_class(
 def _rocq_of_rust_impl(module_ctx):
     """Implementation of rocq-of-rust toolchain extension."""
 
-    # Collect configurations
-    configs = []
+    # Only commit/sha256 affect the hermetic rules_rust build. The
+    # rust_nightly / use_real_library / fail_on_error tag attrs remain for
+    # backward compatibility but no longer influence anything -- the old
+    # imperative cargo path they configured was removed in Stage 5.
+    commit = ""
+    sha256 = ""
     for mod in module_ctx.modules:
         for toolchain in mod.tags.toolchain:
-            configs.append(toolchain)
+            if toolchain.commit:
+                commit = toolchain.commit
+            if toolchain.sha256:
+                sha256 = toolchain.sha256
 
-    # Use first configuration or defaults
-    if configs:
-        config = configs[0]
-        commit = config.commit if config.commit else ""  # Empty uses pinned default
-        sha256 = config.sha256
-        rust_nightly = config.rust_nightly
-        use_real_library = config.use_real_library
-        fail_on_error = config.fail_on_error
-    else:
-        commit = ""  # Uses pinned default in repository.bzl
-        sha256 = ""
-        rust_nightly = "nightly-2024-12-07"
-        use_real_library = False
-        fail_on_error = True
-
-    # Create source repository that downloads and builds rocq-of-rust
-    repo_kwargs = {
-        "name": "rocq_of_rust_source",
-        "rust_nightly": rust_nightly,
-        "use_real_library": use_real_library,
-        "fail_on_error": fail_on_error,
-    }
-    if commit:
-        repo_kwargs["commit"] = commit
-    if sha256:
-        repo_kwargs["sha256"] = sha256
-
-    rocq_of_rust_source(**repo_kwargs)
-
-    # Stage 3 of the rules_rust migration: build the rocq-of-rust binaries
-    # hermetically with rules_rust (see docs/rules_rust-migration.md). Coexists
-    # with rocq_of_rust_source until Stage 4 rewires the toolchain onto it.
+    # Fetch the rocq-of-rust source for the hermetic rules_rust build
+    # (docs/rules_rust-migration.md). The rust_library/rust_binary targets
+    # that consume it live in //coq_of_rust/rocq_of_rust.
     build_kwargs = {"name": "rocq_of_rust_build"}
     if commit:
         build_kwargs["commit"] = commit

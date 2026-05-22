@@ -59,20 +59,9 @@ jobs:
       with:
         nix_path: ${{ env.NIXPKGS_CHANNEL }}
 
-    - name: Install Rust nightly
-      uses: dtolnay/rust-toolchain@nightly
-      with:
-        toolchain: nightly-2024-12-07
-        components: rustc-dev, rust-src, llvm-tools-preview
-
-    - name: Set Rust library paths
-      run: |
-        # Get Rust sysroot and add its lib directory to library paths
-        RUST_SYSROOT=$(rustc +nightly-2024-12-07 --print sysroot)
-        echo "RUST_SYSROOT=$RUST_SYSROOT"
-        ls -la $RUST_SYSROOT/lib/ | head -10
-        echo "LIBRARY_PATH=$RUST_SYSROOT/lib:$LIBRARY_PATH" >> $GITHUB_ENV
-        echo "LD_LIBRARY_PATH=$RUST_SYSROOT/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+    # No host Rust toolchain is installed: rocq-of-rust is built by rules_rust
+    # against a hermetic nightly+rustc-dev sysroot the build downloads itself
+    # (see docs/rules_rust-migration.md).
 
     - name: Set up Bazel
       uses: bazelbuild/setup-bazelisk@v3
@@ -85,17 +74,11 @@ jobs:
         restore-keys: |
           bazel-build-${{ runner.os }}-
 
-    - name: Clean rocq-of-rust cache
+    - name: Build rocq-of-rust (hermetic rules_rust build)
       run: |
-        # Force re-fetch of rocq-of-rust to pick up new LLVM libs
-        bazel clean --expunge_async || true
-        rm -rf ~/.cache/bazel/*rocq_of_rust* || true
-
-    - name: Build RocqOfRust library
-      run: |
-        echo "Building RocqOfRust library..."
-        bazel build @rocq_of_rust_source//:rocq_of_rust_main
-        echo "RocqOfRust library built"
+        echo "Building rocq-of-rust and the RocqOfRust library..."
+        bazel build //coq_of_rust/rocq_of_rust:rocq-of-rust @rocq_of_rust_build//:rocq_of_rust_main
+        echo "rocq-of-rust built"
 
     - name: Run tests
       run: |

@@ -11,7 +11,7 @@ exposes it for the hermetic rules_rust build:
   * the RocqOfRust `.v` library -- `_trim_rocq_library` strips the
     translated-crate subdirs and the generated BUILD adds the ordered
     `rocq_library` targets (`rocq_of_rust_main`, alias `rocq_of_rust_rocq_lib`)
-    so this repo provides the same `.v` targets `@rocq_of_rust_source` did.
+    that the rocq_of_rust toolchain depends on.
 
 The rust_library/rust_binary targets are deliberately NOT generated here: they
 must reference @rocq_of_rust_crates (crate_universe, Stage 1), and a repo
@@ -79,8 +79,8 @@ exports_files(["rust-toolchain"])
 # tarball ships the full RocqOfRust/ tree (M.v, RecordUpdate.v, RocqOfRust.v,
 # lib/*.v plus many translated-crate subdirs). _trim_rocq_library() below strips
 # the translated crates; this block exposes the core files as ordered
-# rocq_library targets so @rocq_of_rust_build provides the same `.v` targets
-# (rocq_of_rust_main / rocq_of_rust_rocq_lib) that @rocq_of_rust_source did.
+# rocq_library targets so @rocq_of_rust_build provides the `.v` library
+# (rocq_of_rust_main / rocq_of_rust_rocq_lib) the toolchain depends on.
 _ROCQ_LIBRARY_BUILD = """
 # ========================================
 # RocqOfRust library - ordered compilation
