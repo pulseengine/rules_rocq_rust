@@ -3,6 +3,7 @@ bazel-out
 bazel-rules_rocq_rust
 bazel-testlogs
 bazel-loom
+bazel-rust_to_rocq
 .claude/
 MODULE.bazel.lock
 third_party/

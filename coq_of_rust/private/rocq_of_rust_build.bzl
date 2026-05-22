@@ -1,6 +1,6 @@
 """Repository rule: build the rocq-of-rust binaries hermetically with rules_rust.
 
-Stage 3 of the rules_rust migration (see docs/rules_rust-migration.md).
+Stages 3-4 of the rules_rust migration (see docs/rules_rust-migration.md).
 
 Downloads the pinned rocq-of-rust source and generates a BUILD.bazel that
 builds its three binaries as rust_binary targets:
@@ -15,6 +15,12 @@ them, `extern crate`d by lib/src/lib.rs) resolve from the hermetic
 nightly+rustc-dev toolchain sysroot (Stage 2). Every crate is built with
 RUSTC_BOOTSTRAP=1 because rocq-of-rust uses #![feature(rustc_private)] and a
 couple of other nightly feature gates.
+
+Stage 4 also exposes the RocqOfRust `.v` library from this repo. The source
+tarball ships the full RocqOfRust/ tree; `_trim_rocq_library` strips the
+translated-crate subdirs and the generated BUILD adds the ordered
+`rocq_library` targets (`rocq_of_rust_main`, alias `rocq_of_rust_rocq_lib`) so
+this repo provides the same `.v` targets `@rocq_of_rust_source` did.
 """
 
 _DEFAULT_COMMIT = "877dd65142b3c5217ce6ae043ff49c8f540eb8a5"
@@ -89,7 +95,8 @@ rust_binary(
     deps = [":rocq_of_rust_lib"] + _CRATES,
 )
 
-# CLI entry point.
+# CLI entry point. This is the binary the rocq_of_rust toolchain drives at
+# translation time (`rocq-of-rust translate --path X.rs --output-path OUT`).
 rust_binary(
     name = "rocq-of-rust",
     srcs = glob(["cli/src/**/*.rs"]),
@@ -98,6 +105,113 @@ rust_binary(
     deps = [":rocq_of_rust_lib", "@rocq_of_rust_crates//:clap"],
 )
 """
+
+# RocqOfRust .v library. Ported from coq_of_rust/private/repository.bzl's
+# `use_real_library` branch of `_generate_build_file`: the rocq-of-rust source
+# tarball ships the full RocqOfRust/ tree (M.v, RecordUpdate.v, RocqOfRust.v,
+# lib/*.v plus many translated-crate subdirs). _trim_rocq_library() below strips
+# the translated crates; this block exposes the core files as ordered
+# rocq_library targets so @rocq_of_rust_build provides the same `.v` targets
+# (rocq_of_rust_main / rocq_of_rust_rocq_lib) that @rocq_of_rust_source did.
+_ROCQ_LIBRARY_BUILD = """
+# ========================================
+# RocqOfRust library - ordered compilation
+# ========================================
+# Dependency order:
+#   1. RecordUpdate.v (no deps)
+#   2. M.v (no internal deps)
+#   3. lib/Notations.v (no deps)
+#   4. lib/lib.v (requires RecordUpdate, M)
+#   5. RocqOfRust.v (requires all above)
+
+load("@rules_rocq_rust//rocq:defs.bzl", "rocq_library")
+
+# Step 1: RecordUpdate - no internal dependencies
+rocq_library(
+    name = "rocq_of_rust_record_update",
+    srcs = ["RocqOfRust/RecordUpdate.v"],
+    include_path = "RocqOfRust",
+    extra_flags = ["-impredicative-set"],
+)
+
+# Step 2: M - no internal dependencies (uses coqutil/hammer/smpl from toolchain)
+rocq_library(
+    name = "rocq_of_rust_m",
+    srcs = ["RocqOfRust/M.v"],
+    include_path = "RocqOfRust",
+    deps = [":rocq_of_rust_record_update"],
+    extra_flags = ["-impredicative-set"],
+)
+
+# Step 3: lib/Notations - no dependencies
+rocq_library(
+    name = "rocq_of_rust_lib_notations",
+    srcs = ["RocqOfRust/lib/Notations.v"],
+    include_path = "RocqOfRust",
+    extra_flags = ["-impredicative-set"],
+)
+
+# Step 4: lib/lib - requires RecordUpdate and M
+rocq_library(
+    name = "rocq_of_rust_lib_lib",
+    srcs = ["RocqOfRust/lib/lib.v"],
+    include_path = "RocqOfRust",
+    deps = [
+        ":rocq_of_rust_record_update",
+        ":rocq_of_rust_m",
+    ],
+    extra_flags = ["-impredicative-set"],
+)
+
+# Step 5: RocqOfRust - main entry point, requires all above
+rocq_library(
+    name = "rocq_of_rust_main",
+    srcs = ["RocqOfRust/RocqOfRust.v"],
+    include_path = "RocqOfRust",
+    deps = [
+        ":rocq_of_rust_record_update",
+        ":rocq_of_rust_m",
+        ":rocq_of_rust_lib_lib",
+    ],
+    extra_flags = ["-impredicative-set"],
+)
+
+# Aggregate target - use this as dependency for translated code.
+# Alias to the main entry point, which transitively includes all of the above.
+alias(
+    name = "rocq_of_rust_rocq_lib",
+    actual = ":rocq_of_rust_main",
+)
+"""
+
+# Translated-crate subdirectories shipped in the rocq-of-rust source tarball
+# that are NOT part of the core RocqOfRust library. Ported verbatim from
+# repository.bzl's _trim_rocq_library(). Removing them keeps only M.v,
+# RecordUpdate.v, RocqOfRust.v, lib/lib.v and lib/Notations.v -- the files the
+# ordered rocq_library targets above reference.
+_ROCQ_DIRS_TO_REMOVE = [
+    "core", "alloc", "bytes",
+    "alloy_primitives", "revm", "ruint",
+    "solana_program_token", "anza_xyz_solana_sdk",
+    "move_sui", "proofs", "examples", "scripts",
+    "legacy", "simulations_legacy", "links", "experiments",
+    "simulate",
+    # Remove subdirectories within lib/ but keep lib/lib.v and lib/Notations.v
+    "lib/proofs", "lib/simulate", "lib/simulations_legacy",
+]
+
+def _trim_rocq_library(repository_ctx):
+    """Keep only core RocqOfRust files, remove translated crate directories.
+
+    Ported from coq_of_rust/private/repository.bzl. The core files kept are
+    RecordUpdate.v, M.v, RocqOfRust.v, lib/lib.v and lib/Notations.v.
+    """
+    if not repository_ctx.path("RocqOfRust").exists:
+        return
+    for dir_name in _ROCQ_DIRS_TO_REMOVE:
+        dir_path = repository_ctx.path("RocqOfRust/{}".format(dir_name))
+        if dir_path.exists:
+            repository_ctx.execute(["rm", "-rf", str(dir_path)])
 
 def _rocq_of_rust_build_impl(repository_ctx):
     commit = repository_ctx.attr.commit or _DEFAULT_COMMIT
@@ -118,7 +232,15 @@ def _rocq_of_rust_build_impl(repository_ctx):
     if _SYSROOT_FN in content and "ROCQ_OF_RUST_SYSROOT" not in content:
         repository_ctx.file(rustc_bin, content.replace(_SYSROOT_FN, _SYSROOT_PATCH, 1))
 
-    repository_ctx.file("BUILD.bazel", _BUILD_FILE)
+    # Trim the RocqOfRust .v tree down to the core files (Stage 4): the source
+    # tarball ships the full library with many translated-crate subdirs; only
+    # M.v / RecordUpdate.v / RocqOfRust.v / lib/{lib,Notations}.v are needed.
+    repository_ctx.report_progress("Trimming RocqOfRust .v library to core files")
+    _trim_rocq_library(repository_ctx)
+
+    # The generated BUILD has both the rust_binary targets (Stage 3) and the
+    # ordered rocq_library targets for the RocqOfRust .v library (Stage 4).
+    repository_ctx.file("BUILD.bazel", _BUILD_FILE + _ROCQ_LIBRARY_BUILD)
 
 rocq_of_rust_build = repository_rule(
     implementation = _rocq_of_rust_build_impl,

@@ -91,9 +91,18 @@ def _create_toolchain_repo(name):
     _toolchain_repo(name = name)
 
 def _toolchain_repo_impl(repository_ctx):
-    """Implementation of toolchain repository rule."""
+    """Implementation of toolchain repository rule.
 
-    build_content = '''# Generated toolchain BUILD.bazel for rocq-of-rust
+    Stage 4 of the rules_rust migration (see docs/rules_rust-migration.md):
+    the toolchain now consumes the hermetic rules_rust build
+    (@rocq_of_rust_build) -- the rust_binary CLI and the RocqOfRust .v library
+    -- instead of the imperatively cargo-built @rocq_of_rust_source. The
+    nightly sysroot from @rocq_of_rust_rust_nightly is threaded through so the
+    translator can find `rustc` on PATH at translation time.
+    """
+
+    build_content = '''# Generated toolchain BUILD.bazel for rocq-of-rust.
+# Stage 4 of the rules_rust migration; see docs/rules_rust-migration.md.
 
 load("@rules_rocq_rust//coq_of_rust/private:toolchain.bzl", "rocq_of_rust_toolchain")
 
@@ -101,9 +110,14 @@ package(default_visibility = ["//visibility:public"])
 
 rocq_of_rust_toolchain(
     name = "rocq_of_rust_toolchain_impl",
-    rocq_of_rust_binary = "@rocq_of_rust_source//:rocq_of_rust",
-    rocq_of_rust_lib = ["@rocq_of_rust_source//:rocq_of_rust_rocq_lib"],
+    # The CLI rust_binary built hermetically by rules_rust (Stage 3).
+    rocq_of_rust_binary = "@rocq_of_rust_build//:rocq-of-rust",
+    # The RocqOfRust .v library, exposed from the same repo (Stage 4).
+    rocq_of_rust_lib = ["@rocq_of_rust_build//:rocq_of_rust_rocq_lib"],
     lib_include_path = "RocqOfRust",
+    # Hermetic nightly sysroot (Stage 2). `rocq-of-rust translate` shells out
+    # to `rustc --print=sysroot` in-process, so its rustc must be on PATH.
+    rust_sysroot = "@rocq_of_rust_rust_nightly//:sysroot",
 )
 
 toolchain(

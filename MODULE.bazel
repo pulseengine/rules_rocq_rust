@@ -65,11 +65,7 @@ register_toolchains("@rocq_toolchains//:all")
 # rocq-of-rust-rustc is a rustc_private driver, so the toolchain sysroot must
 # carry the rustc-dev crates; rules_rust's stock `rust` extension does not ship
 # them. See docs/rules_rust-migration.md (Stage 2).
-# dev_dependency: this Rust-nightly toolchain is private to building
-# rocq-of-rust itself. Consumer modules that only use the Coq prover
-# must not inherit it — and cannot, since its generated rust_toolchain
-# tracks a newer rules_rust API than a consumer may pin.
-rust_nightly = use_extension("//coq_of_rust:extensions.bzl", "rust_nightly_toolchain", dev_dependency = True)
+rust_nightly = use_extension("//coq_of_rust:extensions.bzl", "rust_nightly_toolchain")
 rust_nightly.toolchain(
     rust_nightly = "nightly-2024-12-07",
 )
@@ -78,14 +74,15 @@ use_repo(rust_nightly, "rocq_of_rust_rust_nightly")
 # Register the hermetic nightly toolchain. It carries platform constraints so
 # it only resolves on a matching host; rules_rust's own toolchains (if any) are
 # unaffected.
-register_toolchains("@rocq_of_rust_rust_nightly//:rust_nightly", dev_dependency = True)
+register_toolchains("@rocq_of_rust_rust_nightly//:rust_nightly")
 
 # Third-party Rust crates for the rocq-of-rust build, resolved by crate_universe
 # from the vendored Cargo workspace under coq_of_rust/cargo/. Nothing consumes
 # @rocq_of_rust_crates yet -- the rust_binary targets land in a later migration
 # stage (see docs/rules_rust-migration.md).
-# dev_dependency: rocq-of-rust's own third-party crates — private to
-# building the translator, never consumed by downstream modules.
+# dev_dependency: rocq-of-rust's own crate graph is private to building
+# the translator. Without this, its from_cargo merges into a consumer's
+# shared crate_universe `@crates` hub and clobbers the consumer's crates.
 crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", dev_dependency = True)
 crate.from_cargo(
     name = "rocq_of_rust_crates",
@@ -96,10 +93,8 @@ crate.from_cargo(
 )
 use_repo(crate, "rocq_of_rust_crates")
 
-# rocq-of-rust toolchain extension - translates Rust to Rocq.
-# dev_dependency: building rocq-of-rust needs the Rust-nightly toolchain
-# above, so a consumer that only uses the Coq prover must not inherit it.
-rocq_of_rust = use_extension("//coq_of_rust:extensions.bzl", "rocq_of_rust", dev_dependency = True)
+# rocq-of-rust toolchain extension - translates Rust to Rocq
+rocq_of_rust = use_extension("//coq_of_rust:extensions.bzl", "rocq_of_rust")
 rocq_of_rust.toolchain(
     # Uses pinned default: 877dd65142b3c5217ce6ae043ff49c8f540eb8a5
     use_real_library = True,  # Full library with coqutil + hammer + smpl
@@ -107,4 +102,4 @@ rocq_of_rust.toolchain(
 use_repo(rocq_of_rust, "rocq_of_rust_toolchains", "rocq_of_rust_source", "rocq_of_rust_build")
 
 # Register rocq-of-rust toolchain
-register_toolchains("@rocq_of_rust_toolchains//:toolchain", dev_dependency = True)
+register_toolchains("@rocq_of_rust_toolchains//:toolchain")

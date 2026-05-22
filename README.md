@@ -71,11 +71,29 @@ rocq.toolchain()
 use_repo(rocq, "rocq_toolchains", "rocq_stdlib", "rocq_coqutil", "rocq_hammer", "rocq_hammer_tactics", "rocq_smpl")
 register_toolchains("@rocq_toolchains//:all")
 
+# rocq-of-rust is built hermetically with rules_rust, so a consuming module
+# must also instantiate the hermetic Rust nightly toolchain and the
+# third-party crate set (see docs/rules_rust-migration.md).
+bazel_dep(name = "rules_rust", version = "0.70.0")
+
+rust_nightly = use_extension("@rules_rocq_rust//coq_of_rust:extensions.bzl", "rust_nightly_toolchain")
+rust_nightly.toolchain(rust_nightly = "nightly-2024-12-07")
+use_repo(rust_nightly, "rocq_of_rust_rust_nightly")
+register_toolchains("@rocq_of_rust_rust_nightly//:rust_nightly")
+
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+crate.from_cargo(
+    name = "rocq_of_rust_crates",
+    cargo_lockfile = "@rules_rocq_rust//coq_of_rust/cargo:Cargo.lock",
+    manifests = ["@rules_rocq_rust//coq_of_rust/cargo:Cargo.toml"],
+)
+use_repo(crate, "rocq_of_rust_crates")
+
 # Configure rocq-of-rust
 rocq_of_rust = use_extension("@rules_rocq_rust//coq_of_rust:extensions.bzl", "rocq_of_rust")
 rocq_of_rust.toolchain(use_real_library = True)
-use_repo(rocq_of_rust, "rocq_of_rust_toolchains", "rocq_of_rust_source")
-register_toolchains("@rocq_of_rust_toolchains//:all")
+use_repo(rocq_of_rust, "rocq_of_rust_toolchains", "rocq_of_rust_build")
+register_toolchains("@rocq_of_rust_toolchains//:toolchain")
 ```
 
 ### 2. Create a Rust file to verify

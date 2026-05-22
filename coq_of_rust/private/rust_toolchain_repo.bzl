@@ -159,6 +159,25 @@ filegroup(
     srcs = ["sysroot/bin/cargo{binary_ext}"],
 )
 
+# --- runtime sysroot ----------------------------------------------------------
+#
+# The whole nightly sysroot (bin/ + lib/), exposed for *runtime* use by the
+# rocq-of-rust CLI. At translation time `rocq-of-rust translate` shells out to
+# `rustc --print=sysroot` in-process, so the hermetic nightly `rustc` and its
+# sysroot must be present in the action sandbox and on PATH. Stage 4's
+# `coq_of_rust_library` rule pulls this filegroup into the translation action's
+# inputs and prepends `sysroot/bin` to PATH. See docs/rules_rust-migration.md.
+filegroup(
+    name = "sysroot",
+    srcs = glob(["sysroot/**"], allow_empty = True),
+)
+
+# Just the directory marker for sysroot/bin, used to compute the PATH prefix.
+filegroup(
+    name = "rustc_bin",
+    srcs = ["sysroot/bin/rustc{binary_ext}"],
+)
+
 # --- standard library + rustc-dev crates -------------------------------------
 #
 # This filegroup MUST include the rustc-dev crates (librustc_*) so that a
