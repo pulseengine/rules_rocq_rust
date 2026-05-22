@@ -198,7 +198,7 @@ export LIBRARY_PATH="$(rustc +nightly-2024-12-07 --print sysroot)/lib:$LIBRARY_P
 rustup component add rustc-dev rust-src --toolchain nightly-2024-12-07
 ```
 
-## Example
+## Examples
 
 See `examples/rust_to_rocq/` for a complete working example:
 
