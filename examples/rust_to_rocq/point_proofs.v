@@ -11,7 +11,9 @@
     - The [monadic] tactic wraps Value.t expressions with [pure] *)
 
 Require Import RocqOfRust.RocqOfRust.
-From examples.rust_to_rocq Require Import point.
+(* `Example` is the stable logical prefix set by point_compiled's include_path
+   (see BUILD.bazel) -- resolves the same nested or standalone. *)
+From Example Require Import point.
 
 (* ========================================================================= *)
 (** * Section 1: Point::origin() Proofs *)

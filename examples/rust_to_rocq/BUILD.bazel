@@ -27,10 +27,17 @@ coq_of_rust_library(
 )
 
 # Step 2: Compile the translated Rocq code
-# This compiles point.v to point.vo
+# This compiles point.v to point.vo.
+# `include_path` gives point.v a position-stable Rocq logical name --
+# `Example.point` -- regardless of whether this example is built nested in the
+# rules_rocq_rust workspace or standalone as its own BCR test module. Without
+# it, rocq_library would derive the prefix from ctx.label.package, which
+# differs between nested ("examples.rust_to_rocq") and standalone ("") and so
+# breaks point_proofs.v's import one way or the other.
 rocq_library(
     name = "point_compiled",
     srcs = [":point_translated"],
+    include_path = "Example",
     deps = [":rocq_of_rust_lib"],
     extra_flags = ["-impredicative-set"],
 )
@@ -38,11 +45,15 @@ rocq_library(
 # Method 2: Convenience macro (recommended)
 # -----------------------------------------
 
-# Single target that does both translation and compilation
+# Single target that does both translation and compilation.
+# `include_path = "Example"` must match the one on `point_compiled` above:
+# both targets compile point.v to the same output path, and Bazel only
+# deduplicates the colliding actions if their args (including `-Q`) are equal.
 rocq_rust_verified_library(
     name = "point_verified",
     rust_sources = ["point.rs"],
     edition = "2021",
+    include_path = "Example",
     extra_flags = ["-impredicative-set"],
 )
 
