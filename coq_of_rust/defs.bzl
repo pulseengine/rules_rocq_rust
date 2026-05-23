@@ -28,10 +28,12 @@ def rocq_rust_verified_library(
         edition = edition,
     )
 
-    # Step 2: Compile with rocq_library
+    # Step 2: Compile with rocq_library.
+    # The RocqOfRust .v library now comes from the hermetic rules_rust build
+    # (@rocq_of_rust_build), see docs/rules_rust-migration.md (Stage 4).
     rocq_library(
         name = name,
         srcs = [":" + name + "_generated"],
-        deps = ["@rocq_of_rust_source//:rocq_of_rust_rocq_lib"] + deps,
+        deps = ["@rocq_of_rust_build//:rocq_of_rust_rocq_lib"] + deps,
         **kwargs
     )

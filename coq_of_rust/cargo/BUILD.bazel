@@ -1,0 +1,23 @@
+# Vendored Cargo workspace for rocq-of-rust, pinned to commit
+# 877dd65142b3c5217ce6ae043ff49c8f540eb8a5 -- the same commit the rocq_of_rust
+# toolchain defaults to in coq_of_rust/private/repository.bzl.
+#
+# crate_universe's from_cargo (see MODULE.bazel) runs `cargo metadata` over this
+# workspace to resolve the third-party dependency graph into @rocq_of_rust_crates.
+# Keeping the committed Cargo.lock pins the graph exactly as rocq-of-rust
+# resolved it -- in particular archery stays at 1.2.0 (edition 2021), which
+# sidesteps crate_universe's trouble with the newer edition-2024 archery 1.2.2.
+#
+# Cargo.toml / Cargo.lock and the lib/ + cli/ member manifests are verbatim
+# copies of upstream. The lib/src/ and cli/src/ files are minimal STUBS: cargo
+# needs a discoverable target per workspace member for `cargo metadata` to
+# succeed, but crate_universe never compiles them. The real rocq-of-rust source
+# is fetched from the pinned commit at build time.
+#
+# Keep all of this in sync whenever the toolchain's pinned commit is bumped.
+# See docs/rules_rust-migration.md.
+
+exports_files([
+    "Cargo.toml",
+    "Cargo.lock",
+])

@@ -6,13 +6,13 @@
 load("@rules_rocq_rust//coq_of_rust:defs.bzl", "coq_of_rust_library", "rocq_rust_verified_library")
 load("@rules_rocq_rust//rocq:defs.bzl", "rocq_library", "rocq_proof_test")
 
-# RocqOfRust library - provides the core types needed by translated code
+# RocqOfRust library - provides the core types needed by translated code.
 #
-# For real library mode with coqutil/hammer/smpl, use the pre-compiled library
-# from the repository which handles compilation ordering correctly.
+# Built hermetically via rules_rust; the ordered rocq_library targets live in
+# @rocq_of_rust_build (see docs/rules_rust-migration.md, Stage 4).
 alias(
     name = "rocq_of_rust_lib",
-    actual = "@rocq_of_rust_source//:rocq_of_rust_main",
+    actual = "@rocq_of_rust_build//:rocq_of_rust_main",
 )
 
 # Method 1: Step-by-step translation and compilation

@@ -16,10 +16,12 @@ module(
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 
-# Note: rocq-of-rust is built with cargo directly in the repository rule
-# because it requires rustc_private (nightly internals) and crate_universe
-# can't handle edition2024 crates like archery 1.2.2.
-# No Bazel Rust rules needed - cargo handles the build.
+# rocq-of-rust is a Rust workspace built hermetically via rules_rust +
+# crate_universe (migration in progress -- see docs/rules_rust-migration.md).
+# The third-party dependency graph is pinned through the vendored Cargo.lock
+# under coq_of_rust/cargo/, which keeps archery at 1.2.0 (edition 2021) and so
+# avoids crate_universe's trouble with the edition-2024 archery 1.2.2.
+bazel_dep(name = "rules_rust", version = "0.70.0")
 
 # Nix integration for hermetic Coq/Rocq toolchain
 bazel_dep(name = "rules_nixpkgs_core", version = "0.13.0")
@@ -59,13 +61,47 @@ use_repo(rocq, "rocq_toolchains", "rocq_stdlib", "rocq_coqutil", "rocq_hammer", 
 # Register Rocq toolchain
 register_toolchains("@rocq_toolchains//:all")
 
+# Hermetic Rust nightly (+rustc-dev) toolchain for the rocq-of-rust build.
+# rocq-of-rust-rustc is a rustc_private driver, so the toolchain sysroot must
+# carry the rustc-dev crates; rules_rust's stock `rust` extension does not ship
+# them. See docs/rules_rust-migration.md (Stage 2).
+rust_nightly = use_extension("//coq_of_rust:extensions.bzl", "rust_nightly_toolchain")
+rust_nightly.toolchain(
+    rust_nightly = "nightly-2024-12-07",
+)
+use_repo(rust_nightly, "rocq_of_rust_rust_nightly")
+
+# Register the hermetic nightly toolchain. It carries platform constraints so
+# it only resolves on a matching host; rules_rust's own toolchains (if any) are
+# unaffected.
+register_toolchains("@rocq_of_rust_rust_nightly//:rust_nightly")
+
+# Third-party Rust crates for the rocq-of-rust build, resolved by crate_universe
+# from the vendored Cargo workspace under coq_of_rust/cargo/. Consumed by the
+# rust_library/rust_binary targets in //coq_of_rust/rocq_of_rust.
+#
+# NOT a dev_dependency: the rocq_of_rust toolchain (registered below, non-dev)
+# builds rocq-of-rust from these crates, so any module that consumes the
+# toolchain needs @rocq_of_rust_crates too. The explicit `name` keeps this a
+# distinct, isolated repo -- it does not merge into or clobber a consumer's
+# own crate_universe hub.
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+crate.from_cargo(
+    name = "rocq_of_rust_crates",
+    cargo_lockfile = "//coq_of_rust/cargo:Cargo.lock",
+    # Only the workspace root Cargo.toml is needed; crate_universe discovers the
+    # `lib` and `cli` members from it.
+    manifests = ["//coq_of_rust/cargo:Cargo.toml"],
+)
+use_repo(crate, "rocq_of_rust_crates")
+
 # rocq-of-rust toolchain extension - translates Rust to Rocq
 rocq_of_rust = use_extension("//coq_of_rust:extensions.bzl", "rocq_of_rust")
 rocq_of_rust.toolchain(
     # Uses pinned default: 877dd65142b3c5217ce6ae043ff49c8f540eb8a5
     use_real_library = True,  # Full library with coqutil + hammer + smpl
 )
-use_repo(rocq_of_rust, "rocq_of_rust_toolchains", "rocq_of_rust_source")
+use_repo(rocq_of_rust, "rocq_of_rust_toolchains", "rocq_of_rust_build")
 
 # Register rocq-of-rust toolchain
 register_toolchains("@rocq_of_rust_toolchains//:toolchain")
