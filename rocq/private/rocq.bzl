@@ -151,15 +151,18 @@ def _rocq_library_impl(ctx):
         # nested files like lib/lib.vo get the correct logical path RocqOfRust.lib.lib
         out_dir = output_dir if output_dir else vo_file.dirname
 
-        # Check if out_dir conflicts with deps
-        out_conflicts = out_dir in dep_paths
-        if not out_conflicts:
-            for dep_path in dep_paths.keys():
-                if dep_path.startswith(out_dir + "/"):
-                    # out_dir is a parent of dep_path - would override
-                    out_conflicts = True
-                    break
-        if not out_conflicts:
+        # coqc resolves overlapping `-Q dir prefix` mappings by deepest-ancestor
+        # match per source file, so adding a self `-Q` whose dir is a *parent*
+        # of a dep's `-Q` dir does not override the dep -- the dep's more
+        # specific mapping still wins for its own files. Only skip when a dep
+        # already maps this exact directory (where two `-Q`s with different
+        # prefixes for the same dir would be genuinely ambiguous).
+        #
+        # Without adding the self `-Q`, the compiled .vo gets no logical prefix
+        # (just the basename), which breaks `From <prefix> Require Import x`
+        # imports of generated files in root packages -- see the residual
+        # tracked in the rules_rust migration (Stage 4-fix follow-up).
+        if out_dir not in dep_paths:
             args.add("-Q")
             args.add(out_dir)
             args.add(logical_path)
