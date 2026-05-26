@@ -33,7 +33,7 @@ nix_repo.github(
     name = "nixpkgs",
     org = "NixOS",
     repo = "nixpkgs",
-    # nixos-unstable with Rocq 9.0.1 (2026-04-01)
+    # nixos-unstable with Rocq 9.1.1 (2026-04-01)
     commit = "6201e203d09599479a3b3450ed24fa81537ebc4e",
     sha256 = "",
 )
@@ -42,7 +42,7 @@ use_repo(nix_repo, "nixpkgs")
 # Rocq toolchain
 rocq = use_extension("@rules_rocq_rust//rocq:extensions.bzl", "rocq")
 rocq.toolchain(
-    version = "9.0",
+    version = "9.1",
     strategy = "nix",
     with_rocq_of_rust_deps = True,
 )
