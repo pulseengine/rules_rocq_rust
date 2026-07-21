@@ -7,7 +7,7 @@
 &nbsp;
 
 ![Bazel](https://img.shields.io/badge/Bazel-43A047?style=flat-square&logo=bazel&logoColor=white&labelColor=1a1b27)
-![Formally Verified](https://img.shields.io/badge/Formally_Verified-00C853?style=flat-square&logoColor=white&labelColor=1a1b27)
+![Rocq](https://img.shields.io/badge/Rocq-9.0-A44E9C?style=flat-square&labelColor=1a1b27)
 ![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square&labelColor=1a1b27)
 
 </div>
