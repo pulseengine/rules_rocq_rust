@@ -1,0 +1,125 @@
+artifacts:
+  - id: REQ-001
+    type: requirement
+    title: Proof-obligation build rules shall only report success on a version-matched, zero-exit kernel check
+    status: approved
+    priority: must
+    description: >
+      Addresses CC-001 / H-001. Applies to `rocq_library`, `rocq_proof_test`,
+      and every proof-obligation rule this toolchain provides.
+    fields:
+      category: constraint
+      upstream-ref: "pulseengine/rules_rocq_rust#31"
+    links:
+      - type: constraint-satisfies
+        target: CC-001
+      - type: satisfies
+        target: H-001
+
+  - id: REQ-002
+    type: requirement
+    title: The toolchain shall support machine-checked floating-point error-bound proofs, kernel-replaying every Gappa certificate
+    status: draft
+    priority: must
+    description: >
+      Add Flocq (fp model), Coq-Gappa + the `gappa` binary (rounding-error
+      layer), and Coq-Interval (approximation-error layer) to the toolchain
+      flake, pinned against the bundled Rocq version. Any rule built on top of
+      Gappa must satisfy CC-002 — the Gappa-emitted proof term is always
+      replayed through the Rocq kernel, never trusted as-is.
+    fields:
+      category: functional
+      upstream-ref: "pulseengine/rules_rocq_rust#37"
+    links:
+      - type: constraint-satisfies
+        target: CC-002
+
+  - id: DD-002
+    type: design-decision
+    title: Rely on Bazel action-failure semantics plus explicit Rocq-version pinning to satisfy REQ-001
+    status: approved
+    description: >
+      Existing mechanism that already satisfies REQ-001 for today's
+      `rocq_library`/`rocq_proof_test` rules.
+    fields:
+      decision: >
+        `rocq_library` and `rocq_proof_test` invoke `coqc`/`rocq` as a Bazel
+        action; a non-zero exit fails the action (and the build) directly, so
+        there is no separate "report PASS" step that could mask a kernel
+        failure. Version-matching is enforced by pinning every dependency
+        (rocq-core, coqutil, hammer, smpl) to the single Rocq version declared
+        in `MODULE.bazel`'s `rocq.toolchain()` per-repo, rather than resolving
+        them independently — the smpl `.vo` version mismatch fixed in PR #30
+        (16f6ff2, "build smpl against matching Rocq version") is this
+        mechanism being repaired, not a new one being introduced.
+      rationale: >
+        Bazel's own action-failure propagation is a stronger oracle than any
+        rule-level status flag the build script could set and get wrong; the
+        gap that actually bit us (#31, PR #30) was a *dependency* pinned to
+        the wrong Rocq version producing a `.vo` the kernel silently accepted
+        as compatible, not the build masking a real failure.
+      alternatives: >
+        A rule-level "did the kernel actually check this" flag written by the
+        build script — rejected as strictly weaker than letting the action
+        itself fail, and it would be one more thing to get wrong.
+      source-ref: "pulseengine/rules_rocq_rust#31, PR #30"
+    links:
+      - type: satisfies
+        target: REQ-001
+
+  - id: DD-001
+    type: design-decision
+    title: Layer Gappa (rounding) + Coq-Interval (approximation) + Flocq (fp model), kernel-replay every Gappa certificate
+    status: approved
+    description: >
+      Toolchain architecture for issue #37's floating-point error-bound proof
+      capability.
+    fields:
+      decision: >
+        Add coq-flocq, coq-gappa (+ the gappa binary), coq-interval, and
+        coq-coquelicot to the Nix-pinned toolchain flake, exposing their
+        .vo/include paths so `rocq_library` can depend on them (or a thin
+        `gappa_proof` rule wrapping the gappa-to-Rocq flow). A complete kernel
+        bound = Gappa (rounding, semi-automatic via interval arithmetic +
+        rewriting) + Coq-Interval (approximation, Taylor-model/interval bounds
+        on the minimax remainder) + Flocq (the underlying fp model) — and
+        whatever wraps Gappa must always kernel-check its emitted Flocq proof
+        term, never accept Gappa's own certificate-generation success as
+        sufficient (see the controller-constraint on gappa-wrapping rules).
+      rationale: >
+        Gappa is semi-automatic and emits a Flocq/Rocq proof term the kernel
+        checks — dramatically less manual labor than hand-written Rocq for the
+        rounding-error layer (Cody-Waite reduction + Horner accumulation), but
+        it does not cover the approximation-error layer (the minimax remainder
+        bound), which needs Coq-Interval or an externally-checked Sollya
+        certificate. Filed by the relay maintainer against relay's exhaustively
+        enumerated f32 sin/cos kernels (worst abs error 1.19e-7, falcon
+        MATHF32-P02) as the next assurance-level investment.
+      alternatives: >
+        Base Rocq + Flocq alone, with no Gappa/Coq-Interval — maximally
+        flexible but hundreds of manual proof lines per function; rejected as
+        the primary path (the crlibm/CORE-MATH literature shows this is a
+        multi-week effort per kernel even with the tools).
+      source-ref: "pulseengine/rules_rocq_rust#37"
+    links:
+      - type: satisfies
+        target: REQ-002
+
+  - id: FEAT-001
+    type: feature
+    title: Machine-checked FP error-bound proofs (Flocq + Gappa + Coq-Interval)
+    status: draft
+    description: >
+      Toolchain capability requested in #37, enabling a raise-assurance proof
+      on top of relay's existing exhaustive-enumeration empirical bound.
+    fields:
+      phase: future
+      acceptance-criteria:
+        - "Toolchain flake provides coq-flocq, coq-gappa (+ gappa binary), coq-interval, coq-coquelicot, pinned against the bundled Rocq version"
+        - "rocq_library (or a new gappa_proof rule) can depend on the new packages' .vo/include paths"
+        - "A minimal example proves one f32 rounding bound end-to-end, kernel-checked by Rocq, as the template for relay's kernels"
+    links:
+      - type: satisfies
+        target: REQ-002
+      - type: implements
+        target: DD-001

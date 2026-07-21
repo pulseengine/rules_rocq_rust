@@ -1,0 +1,146 @@
+artifacts:
+  - id: L-001
+    type: loss
+    title: Loss of trust in a verification claim produced by this toolchain
+    status: draft
+    description: >
+      A `rocq_proof_test` (or any future proof-obligation rule built on this
+      toolchain) is reported as passing when the claimed property was not
+      actually kernel-checked by Rocq. Consumers of rules_rocq_rust — including
+      safety-critical downstream projects such as relay's flight-math kernels —
+      rely on a green build as evidence that a proof holds. A false-positive
+      "verified" signal from the tool propagates a false assurance claim into
+      whatever the consumer ships.
+    fields:
+      stakeholders: [rules_rocq_rust-consumers, relay-flight-math, downstream-safety-cases]
+
+  - id: H-001
+    type: hazard
+    title: Toolchain reports a Rocq proof as checked when the kernel did not verify it
+    status: draft
+    description: >
+      The build accepts a `.vo` (compiled proof) as evidence of a passing
+      proof obligation without the Rocq kernel actually having type-checked it
+      against the pinned toolchain version — e.g. a stale or version-mismatched
+      `.vo` is treated as valid, or a non-zero `coqc`/`rocq` exit is masked by
+      the build rule. (This is exactly the failure class fixed ad hoc for smpl
+      in PR #30 — a `.vo` version mismatch between Rocq 9.0 and 9.1 — and for
+      `rocq_library`'s `-Q` path handling in #35; H-001 exists so future
+      instances are caught by design instead of by incident.)
+    fields:
+      severity: critical
+    links:
+      - type: leads-to-loss
+        target: L-001
+
+  - id: H-002
+    type: hazard
+    title: A Gappa-emitted rounding-error certificate is trusted without Rocq kernel replay
+    status: draft
+    description: >
+      Gappa establishes a floating-point rounding-error bound outside Rocq and
+      emits a Flocq/Rocq proof term as its certificate. If a build rule accepts
+      Gappa's report of success directly — without feeding that emitted proof
+      term back through the Rocq kernel — the claimed error bound is asserted
+      by an external, un-kernel-checked tool rather than proven. This is the
+      concrete new risk introduced by issue #37 (adding Flocq + Gappa +
+      Coq-Interval to enable machine-checked FP error-bound proofs for
+      relay's flight-math kernels).
+    fields:
+      severity: critical
+    links:
+      - type: leads-to-loss
+        target: L-001
+
+  - id: CTRL-001
+    type: controller
+    title: Rocq proof-obligation build rules (rocq_library / rocq_proof_test / future gappa_proof)
+    status: draft
+    description: >
+      The Bazel rules that compile `.v` sources and report whether a proof
+      obligation is satisfied. This is the tool's own correctness-critical
+      control point — the inward-facing oracle for the whole toolchain.
+    fields:
+      controller-type: automated
+
+  - id: UCA-001
+    type: uca
+    title: Proof-obligation rule reports PASS without a successful, version-matched kernel check
+    status: draft
+    description: >
+      Providing a "proof checked" signal when the underlying `coqc`/`rocq`
+      process did not exit zero, or when the checked `.vo` was compiled
+      against a different Rocq version than the toolchain currently pins,
+      leads to H-001.
+    fields:
+      uca-type: providing
+      context: >
+        Any `rocq_library`/`rocq_proof_test` target build, across a Rocq
+        version bump (e.g. the in-flight 9.0 -> 9.1 upgrade, PR #30/#31) or a
+        misconfigured `-Q`/include-path (#35's failure mode).
+    links:
+      - type: issued-by
+        target: CTRL-001
+      - type: leads-to-hazard
+        target: H-001
+
+  - id: UCA-002
+    type: uca
+    title: FP error-bound proof obligation accepted from Gappa's own report, without kernel replay
+    status: draft
+    description: >
+      Providing a "floating-point error bound proven" signal based on Gappa's
+      certificate generation succeeding, without invoking Rocq to kernel-check
+      the Flocq proof term Gappa emitted, leads to H-002.
+    fields:
+      uca-type: providing
+      context: >
+        Any future `gappa_proof` (or equivalent) rule built for issue #37's
+        Flocq + Gappa + Coq-Interval toolchain addition.
+    links:
+      - type: issued-by
+        target: CTRL-001
+      - type: leads-to-hazard
+        target: H-002
+
+  - id: CC-001
+    type: controller-constraint
+    title: Proof-obligation rules must only report PASS on a zero-exit, version-matched kernel check
+    status: draft
+    description: >
+      Inverts UCA-001.
+    fields:
+      constraint: >
+        A `rocq_library`/`rocq_proof_test` target must report its proof
+        obligation as satisfied only when (a) `coqc`/`rocq` exits zero on the
+        `.v` source, and (b) the resulting `.vo`'s compiled-against Rocq
+        version matches the toolchain version currently registered — never
+        infer success from a cached/stale artifact or a partial build graph.
+    links:
+      - type: constrains-controller
+        target: CTRL-001
+      - type: inverts-uca
+        target: UCA-001
+      - type: prevents
+        target: H-001
+
+  - id: CC-002
+    type: controller-constraint
+    title: A gappa_proof rule must kernel-check Gappa's emitted Flocq proof term, never trust the certificate directly
+    status: draft
+    description: >
+      Inverts UCA-002.
+    fields:
+      constraint: >
+        Any rule that wraps the Gappa rounding-error prover must feed Gappa's
+        emitted Flocq/Rocq proof term back through the Rocq kernel and report
+        the proof obligation as satisfied only on a successful, version-matched
+        kernel check of that term — Gappa's own certificate-generation success
+        is never sufficient by itself.
+    links:
+      - type: constrains-controller
+        target: CTRL-001
+      - type: inverts-uca
+        target: UCA-002
+      - type: prevents
+        target: H-002
