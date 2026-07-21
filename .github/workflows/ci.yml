@@ -188,7 +188,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Install PyYAML
-      run: pip install --quiet pyyaml
+      run: pip install --break-system-packages --quiet pyyaml
 
     - name: Check doc claims against evidence
       run: python3 tools/claim_check.py claims.yaml
