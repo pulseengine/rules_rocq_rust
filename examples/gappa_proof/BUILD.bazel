@@ -1,0 +1,19 @@
+# Minimal machine-checked floating-point error-bound proof (#37 / FEAT-001).
+#
+# Template for relay's flight-math kernels: a `.gappa` rounding-bound
+# statement, compiled through Gappa's `-Bcoq` backend and kernel-checked by
+# Rocq via gappa_proof (rocq:defs.bzl) -- never trusting Gappa's certificate
+# on its own (rivet CC-002).
+
+load("@rules_rocq_rust//rocq:defs.bzl", "gappa_proof", "rocq_proof_test")
+
+gappa_proof(
+    name = "rounding_bound",
+    src = "rounding_bound.gappa",
+)
+
+rocq_proof_test(
+    name = "rounding_bound_test",
+    srcs = [],
+    deps = [":rounding_bound"],
+)
