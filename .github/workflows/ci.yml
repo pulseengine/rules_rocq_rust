@@ -175,3 +175,20 @@ jobs:
         curl -Lo buildifier https://github.com/bazelbuild/buildtools/releases/download/v7.3.1/buildifier-linux-amd64
         chmod +x buildifier
         ./buildifier --mode=check -r . || echo "Some files need formatting"
+
+  # Doc-claim honesty gate (see claims.yaml / pulseengine claim-verification skill).
+  # A stale/overclaiming README fails this job the same way an un-kernel-checked
+  # proof fails a rocq_proof_test -- the claim IS the artifact being gated.
+  claim-check:
+    name: Claim Check
+    runs-on: [self-hosted, linux, x64, light]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install PyYAML
+      run: pip install --quiet pyyaml
+
+    - name: Check doc claims against evidence
+      run: python3 tools/claim_check.py claims.yaml
