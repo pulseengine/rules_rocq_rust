@@ -1,0 +1,13 @@
+# Minimal machine-checked floating-point error-bound proof (#37 / FEAT-001).
+#
+# Claim: rounding any x in [1, 2] to the nearest ieee_32 float introduces an
+# absolute error of at most 2^-24 (one ULP at that exponent).
+#
+# `gappa -Bcoq` turns this statement into a Rocq proof script built on top of
+# Flocq (via gappalib-coq's Gappa_library); see rocq/defs.bzl's gappa_proof
+# macro, which always kernel-checks the emitted script with coqc rather than
+# trusting Gappa's own certificate-generation success (rivet CC-002).
+
+@rnd = float<ieee_32,ne>;
+
+{ x in [1,2] -> |rnd(x) - x| <= 1b-24 }

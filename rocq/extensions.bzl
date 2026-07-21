@@ -6,7 +6,8 @@ Supports Rocq 9.0.1+ and includes required external packages for rocq-of-rust.
 This extension creates its own nixpkgs repository internally for bzlmod compatibility.
 """
 
-load("@rules_nixpkgs_core//:nixpkgs.bzl", "nixpkgs_package", "nixpkgs_local_repository")
+load("@rules_nixpkgs_core//:nixpkgs.bzl", "nixpkgs_local_repository", "nixpkgs_package")
+load("//rocq/private:gappalib_repository.bzl", "gappalib_source")
 load("//rocq/private:smpl_repository.bzl", "smpl_source")
 
 # Default nixpkgs commit (nixos-unstable with Rocq 9.0.1)
@@ -102,6 +103,10 @@ rocq_toolchain_info(
     hammer_tactics_ocaml_plugins = "@rocq_hammer_tactics//:ocaml_plugins",
     smpl = "@rocq_smpl//:smpl",
     smpl_ocaml_plugins = "@rocq_smpl//:ocaml_plugins",
+    flocq = "@rocq_flocq//:flocq",
+    interval = "@rocq_interval//:interval",
+    coquelicot = "@rocq_coquelicot//:coquelicot",
+    gappalib = "@rocq_gappalib//:gappalib",
 )
 
 # Register as toolchain
@@ -205,6 +210,59 @@ filegroup(
 )
 '''
 
+# BUILD file for Flocq (floating-point formalization library)
+_FLOCQ_BUILD_FILE = '''
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "flocq",
+    srcs = glob([
+        "lib/coq/**/*.vo",
+        "lib/coq/**/*.glob",
+    ], allow_empty = True),
+)
+'''
+
+# BUILD file for Coq-Interval (interval arithmetic / approximation-error bounds)
+_INTERVAL_BUILD_FILE = '''
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "interval",
+    srcs = glob([
+        "lib/coq/**/*.vo",
+        "lib/coq/**/*.glob",
+    ], allow_empty = True),
+)
+'''
+
+# BUILD file for Coquelicot (real analysis library, Coq-Interval's dependency)
+_COQUELICOT_BUILD_FILE = '''
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "coquelicot",
+    srcs = glob([
+        "lib/coq/**/*.vo",
+        "lib/coq/**/*.glob",
+    ], allow_empty = True),
+)
+'''
+
+# BUILD file for the standalone gappa binary (external rounding/approximation prover)
+# Gappa is not a Coq plugin -- it's an external CLI whose `-Bcoq` mode emits a
+# Rocq proof script (see gappa_proof in coq_of_rust:defs.bzl / rocq:defs.bzl,
+# and rivet CC-002: the emitted script is always kernel-checked, never trusted
+# as-is).
+_GAPPA_BIN_BUILD_FILE = '''
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "gappa",
+    srcs = ["bin/gappa"],
+)
+'''
+
 # BUILD file for Rocq stdlib (separate from rocq-core in 9.0)
 # Stdlib is at lib/coq/9.0/user-contrib/Stdlib
 _STDLIB_BUILD_FILE = '''
@@ -233,6 +291,7 @@ def _rocq_impl(module_ctx):
     Includes optional dependencies for rocq-of-rust (coqutil, hammer, smpl).
     Creates its own nixpkgs repository for bzlmod compatibility.
     """
+
     # Collect toolchain configurations from all modules
     toolchains = []
     for mod in module_ctx.modules:
@@ -314,6 +373,50 @@ import (builtins.fetchTarball {{
         smpl_source(
             name = "rocq_smpl",
             branch = "rocq-9.0",
+        )
+
+        # Flocq - floating-point formalization library (#37)
+        nixpkgs_package(
+            name = "rocq_flocq",
+            repository = nixpkgs_repo,
+            attribute_path = "coqPackages.flocq",
+            build_file_content = _FLOCQ_BUILD_FILE,
+        )
+
+        # Coq-Interval - approximation-error (minimax remainder) bounds (#37)
+        nixpkgs_package(
+            name = "rocq_interval",
+            repository = nixpkgs_repo,
+            attribute_path = "coqPackages.interval",
+            build_file_content = _INTERVAL_BUILD_FILE,
+        )
+
+        # Coquelicot - real analysis library, Coq-Interval's dependency (#37)
+        nixpkgs_package(
+            name = "rocq_coquelicot",
+            repository = nixpkgs_repo,
+            attribute_path = "coqPackages.coquelicot",
+            build_file_content = _COQUELICOT_BUILD_FILE,
+        )
+
+        # gappa - standalone rounding-error prover binary (#37). nixpkgs has no
+        # coq-gappa/gappalib-coq package for this Rocq version, only the CLI;
+        # the matching Rocq support library is built from source below.
+        nixpkgs_package(
+            name = "rocq_gappa_bin",
+            repository = nixpkgs_repo,
+            attribute_path = "gappa",
+            build_file_content = _GAPPA_BIN_BUILD_FILE,
+        )
+
+        # gappalib-coq - Gappa's Rocq support library, built from source
+        # against this toolchain's Flocq (see gappalib_repository.bzl for why
+        # nixpkgs can't provide this directly, and CC-002 for why the emitted
+        # proof term must always be kernel-checked rather than trusted as-is)
+        gappalib_source(
+            name = "rocq_gappalib",
+            version = "1.10.0",
+            nixpkgs_commit = _DEFAULT_NIXPKGS_COMMIT,
         )
 
     # Return extension metadata (reproducible for caching)

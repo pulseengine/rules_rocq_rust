@@ -38,10 +38,10 @@ nix_repo = use_extension(
 )
 nix_repo.github(
     name = "nixpkgs",
-    org = "NixOS",
-    repo = "nixpkgs",
     # nixos-unstable with Rocq 9.0.1, coq-hammer, coqutil (2026-04-01)
     commit = "6201e203d09599479a3b3450ed24fa81537ebc4e",
+    org = "NixOS",
+    repo = "nixpkgs",
     sha256 = "",  # Will be computed on first fetch
 )
 use_repo(nix_repo, "nixpkgs")
@@ -49,14 +49,18 @@ use_repo(nix_repo, "nixpkgs")
 # Rocq toolchain extension - uses nixpkgs for hermetic Rocq/Coq
 rocq = use_extension("//rocq:extensions.bzl", "rocq")
 rocq.toolchain(
+    strategy = "nix",  # Hermetic nix-based installation
     version = "9.0",  # Rocq 9.0.1 (required for real RocqOfRust library)
-    strategy = "nix",   # Hermetic nix-based installation
     with_rocq_of_rust_deps = True,  # Include coqutil, hammer, smpl
 )
+
 # smpl is built from source (rocq-9.0 branch) since nixpkgs only has up to Coq 8.15
 # rocq_stdlib is the separate stdlib package for Rocq 9.0
 # hammer_tactics is a separate package from hammer (plugin vs library)
-use_repo(rocq, "rocq_toolchains", "rocq_stdlib", "rocq_coqutil", "rocq_hammer", "rocq_hammer_tactics", "rocq_smpl")
+# flocq/interval/coquelicot/gappa_bin/gappalib enable machine-checked
+# floating-point error-bound proofs (#37); gappalib is built from source
+# against Flocq, same as smpl is built from source against Rocq 9.0
+use_repo(rocq, "rocq_coquelicot", "rocq_coqutil", "rocq_flocq", "rocq_gappa_bin", "rocq_gappalib", "rocq_hammer", "rocq_hammer_tactics", "rocq_interval", "rocq_smpl", "rocq_stdlib", "rocq_toolchains")
 
 # Register Rocq toolchain
 register_toolchains("@rocq_toolchains//:all")
@@ -101,7 +105,7 @@ rocq_of_rust.toolchain(
     # Uses pinned default: 877dd65142b3c5217ce6ae043ff49c8f540eb8a5
     use_real_library = True,  # Full library with coqutil + hammer + smpl
 )
-use_repo(rocq_of_rust, "rocq_of_rust_toolchains", "rocq_of_rust_build")
+use_repo(rocq_of_rust, "rocq_of_rust_build", "rocq_of_rust_toolchains")
 
 # Register rocq-of-rust toolchain
 register_toolchains("@rocq_of_rust_toolchains//:toolchain")

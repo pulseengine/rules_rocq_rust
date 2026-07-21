@@ -67,6 +67,30 @@ def _rocq_toolchain_info_impl(ctx):
         if path:
             extra_libs.append((ctx.files.smpl, "smpl", path))
 
+    # Flocq - floating-point formalization library
+    if ctx.files.flocq:
+        path = _find_lib_path(ctx.files.flocq, "/Flocq/", "Flocq")
+        if path:
+            extra_libs.append((ctx.files.flocq, "Flocq", path))
+
+    # Coq-Interval - interval arithmetic / approximation-error bounds
+    if ctx.files.interval:
+        path = _find_lib_path(ctx.files.interval, "/Interval/", "Interval")
+        if path:
+            extra_libs.append((ctx.files.interval, "Interval", path))
+
+    # Coquelicot - real analysis library (Coq-Interval's dependency)
+    if ctx.files.coquelicot:
+        path = _find_lib_path(ctx.files.coquelicot, "/Coquelicot/", "Coquelicot")
+        if path:
+            extra_libs.append((ctx.files.coquelicot, "Coquelicot", path))
+
+    # gappalib-coq - Gappa's Rocq support library (built from source against Flocq)
+    if ctx.files.gappalib:
+        path = _find_lib_path(ctx.files.gappalib, "/Gappa/", "Gappa")
+        if path:
+            extra_libs.append((ctx.files.gappalib, "Gappa", path))
+
     # Compute OCAMLPATH for findlib resolution (needed for Hammer plugins)
     # Includes the coq lib path and all OCaml plugin site-lib paths
     ocaml_paths = []
@@ -82,6 +106,7 @@ def _rocq_toolchain_info_impl(ctx):
     for plugin_files in [ctx.files.hammer_ocaml_plugins, ctx.files.hammer_tactics_ocaml_plugins, ctx.files.smpl_ocaml_plugins]:
         if plugin_files:
             ocaml_plugin_files.extend(plugin_files)
+
             # Find site-lib directory from the META file paths
             for f in plugin_files:
                 if "/site-lib/" in f.path:
@@ -152,6 +177,22 @@ rocq_toolchain_info = rule(
         "smpl_ocaml_plugins": attr.label(
             allow_files = True,
             doc = "smpl OCaml findlib plugin files (optional)",
+        ),
+        "flocq": attr.label(
+            allow_files = True,
+            doc = "Flocq library .vo files (optional)",
+        ),
+        "interval": attr.label(
+            allow_files = True,
+            doc = "Coq-Interval library .vo files (optional)",
+        ),
+        "coquelicot": attr.label(
+            allow_files = True,
+            doc = "Coquelicot library .vo files (optional)",
+        ),
+        "gappalib": attr.label(
+            allow_files = True,
+            doc = "gappalib-coq (Gappa's Rocq support library) .vo files (optional)",
         ),
     },
     doc = "Provides Rocq toolchain information",

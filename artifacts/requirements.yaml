@@ -19,14 +19,16 @@ artifacts:
   - id: REQ-002
     type: requirement
     title: The toolchain shall support machine-checked floating-point error-bound proofs, kernel-replaying every Gappa certificate
-    status: draft
+    status: implemented
     priority: must
     description: >
-      Add Flocq (fp model), Coq-Gappa + the `gappa` binary (rounding-error
-      layer), and Coq-Interval (approximation-error layer) to the toolchain
-      flake, pinned against the bundled Rocq version. Any rule built on top of
-      Gappa must satisfy CC-002 — the Gappa-emitted proof term is always
-      replayed through the Rocq kernel, never trusted as-is.
+      Add Flocq (fp model), the `gappa` binary (rounding-error layer),
+      gappalib-coq (Gappa's Rocq support library, built from source against
+      Flocq — nixpkgs has no `coq-gappa` package at this pin), and Coq-Interval
+      + Coquelicot (approximation-error layer) to the toolchain flake, pinned
+      against the bundled Rocq version. Any rule built on top of Gappa must
+      satisfy CC-002 — the Gappa-emitted proof term is always replayed through
+      the Rocq kernel, never trusted as-is.
     fields:
       category: functional
       upstream-ref: "pulseengine/rules_rocq_rust#37"
@@ -76,16 +78,27 @@ artifacts:
       capability.
     fields:
       decision: >
-        Add coq-flocq, coq-gappa (+ the gappa binary), coq-interval, and
-        coq-coquelicot to the Nix-pinned toolchain flake, exposing their
-        .vo/include paths so `rocq_library` can depend on them (or a thin
-        `gappa_proof` rule wrapping the gappa-to-Rocq flow). A complete kernel
-        bound = Gappa (rounding, semi-automatic via interval arithmetic +
-        rewriting) + Coq-Interval (approximation, Taylor-model/interval bounds
-        on the minimax remainder) + Flocq (the underlying fp model) — and
-        whatever wraps Gappa must always kernel-check its emitted Flocq proof
-        term, never accept Gappa's own certificate-generation success as
-        sufficient (see the controller-constraint on gappa-wrapping rules).
+        Add coq-flocq, coq-interval, and coq-coquelicot to the Nix-pinned
+        toolchain flake via nixpkgs (coqPackages.flocq/interval/coquelicot,
+        already built against the exact same Rocq 9.0.1 as the rest of the
+        toolchain), plus the standalone `gappa` binary (nixpkgs `gappa`, an
+        external CLI, not a Coq plugin). nixpkgs has no `coq-gappa`/
+        gappalib-coq package at this pin, so gappalib-coq (Gappa's Rocq
+        support library — the `Gappa.Gappa_library` that Gappa's `-Bcoq`
+        output `Require Import`s) is built from source against Flocq, the
+        same way `smpl` is already built from source for this Rocq version
+        (see gappalib_repository.bzl). A `gappa_proof` Bazel macro
+        (rocq:defs.bzl) wraps the gappa-to-Rocq flow: it runs `gappa -Bcoq`
+        in a genrule, then always compiles the emitted `.v` with
+        `rocq_library` — there is no separate "gappa succeeded" status,
+        only a normal coqc build that fails if the kernel rejects the proof.
+        A complete kernel bound = Gappa (rounding, semi-automatic via
+        interval arithmetic + rewriting) + Coq-Interval (approximation,
+        Taylor-model/interval bounds on the minimax remainder) + Flocq (the
+        underlying fp model) — and whatever wraps Gappa must always
+        kernel-check its emitted Flocq proof term, never accept Gappa's own
+        certificate-generation success as sufficient (see the
+        controller-constraint on gappa-wrapping rules).
       rationale: >
         Gappa is semi-automatic and emits a Flocq/Rocq proof term the kernel
         checks — dramatically less manual labor than hand-written Rocq for the
@@ -108,16 +121,20 @@ artifacts:
   - id: FEAT-001
     type: feature
     title: Machine-checked FP error-bound proofs (Flocq + Gappa + Coq-Interval)
-    status: draft
+    status: implemented
     description: >
       Toolchain capability requested in #37, enabling a raise-assurance proof
       on top of relay's existing exhaustive-enumeration empirical bound.
+      Verified via `bazel test //examples/gappa_proof:rounding_bound_test`,
+      which exercises the full chain: a `.gappa` rounding-bound statement,
+      Gappa's `-Bcoq` codegen, and a real Rocq kernel check of the emitted
+      proof term against gappalib-coq/Flocq — PASSED.
     fields:
-      phase: future
+      phase: phase-1
       acceptance-criteria:
-        - "Toolchain flake provides coq-flocq, coq-gappa (+ gappa binary), coq-interval, coq-coquelicot, pinned against the bundled Rocq version"
-        - "rocq_library (or a new gappa_proof rule) can depend on the new packages' .vo/include paths"
-        - "A minimal example proves one f32 rounding bound end-to-end, kernel-checked by Rocq, as the template for relay's kernels"
+        - "Toolchain flake provides flocq, gappa (binary), gappalib-coq, interval, coquelicot, pinned against the bundled Rocq version -- DONE (rocq/extensions.bzl, rocq/private/gappalib_repository.bzl)"
+        - "rocq_library (or a new gappa_proof rule) can depend on the new packages' .vo/include paths -- DONE (gappa_proof macro, rocq/defs.bzl)"
+        - "A minimal example proves one f32 rounding bound end-to-end, kernel-checked by Rocq, as the template for relay's kernels -- DONE (examples/gappa_proof, bazel test PASSED)"
     links:
       - type: satisfies
         target: REQ-002
