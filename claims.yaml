@@ -1,0 +1,69 @@
+# claims.yaml -- gates rules_rocq_rust's load-bearing README/doc claims against
+# live evidence, per the PulseEngine claim-verification skill. Run:
+#   python3 tools/claim_check.py claims.yaml
+# from the repo root. Drift between a claim and the actual source fails this check.
+
+claims:
+  # The badge fix (#36): replaces the flat "Formally Verified" overclaim with a
+  # technique-named "Rocq" badge. Gates that the old claim never reappears.
+  - id: README-BADGE
+    doc: README.md
+    text: "![Rocq](https://img.shields.io/badge/Rocq-9.0"
+    evidence:
+      - kind: verbatim
+        text: "![Rocq](https://img.shields.io/badge/Rocq-9.0"
+      - kind: count-max
+        pattern: 'Formally[_ ]Verified'
+        glob: ['README.md']
+        max: 0
+
+  # The footer tagline was the same overclaim relocated (plus factually wrong --
+  # this repo has nothing to do with WebAssembly). Gates the honest replacement
+  # and that the retired claim doesn't reappear.
+  - id: README-FOOTER
+    doc: README.md
+    text: "Bazel rules powering the Rocq theorem-proving toolchain"
+    evidence:
+      - kind: verbatim
+        text: "Bazel rules powering the Rocq theorem-proving toolchain"
+      - kind: count-max
+        pattern: 'formally verified WebAssembly'
+        glob: ['README.md']
+        max: 0
+
+  # #37/FEAT-001: the gappa_proof macro's core safety property (rivet CC-002)
+  # -- Gappa's CLI output is never trusted directly, it's always kernel-checked
+  # by compiling the emitted proof term with rocq_library. Structural evidence:
+  # the macro body must actually call rocq_library (not just claim to in prose),
+  # and the from-source support library it kernel-checks against must exist.
+  - id: GAPPA-KERNEL-CHECK
+    doc: rocq/defs.bzl
+    text: "certificate is never trusted on its own"
+    evidence:
+      - kind: file-exists
+        path: rocq/private/gappalib_repository.bzl
+      - kind: count-min
+        pattern: 'rocq_library\('
+        glob: ['rocq/defs.bzl']
+        min: 1
+
+  # Toolchain Contents table must list what the toolchain actually wires in
+  # (rocq/extensions.bzl is the source of truth for what's fetched).
+  - id: TOOLCHAIN-CONTENTS-FLOCQ
+    doc: README.md
+    text: "| Flocq | Floating-point formalization library |"
+    evidence:
+      - kind: count-min
+        pattern: 'rocq_flocq'
+        glob: ['rocq/extensions.bzl']
+        min: 1
+
+  # The Examples section's gappa_proof pointer must resolve to a real target.
+  - id: EXAMPLES-GAPPA-PROOF
+    doc: README.md
+    text: "bazel test //examples/gappa_proof:rounding_bound_test"
+    evidence:
+      - kind: file-exists
+        path: examples/gappa_proof/BUILD.bazel
+      - kind: file-exists
+        path: examples/gappa_proof/rounding_bound.gappa

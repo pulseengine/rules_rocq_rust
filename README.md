@@ -173,6 +173,11 @@ Test rule that verifies proofs compile successfully.
 | coqutil | Utility library |
 | Hammer | Automated proof tactics |
 | smpl | Simplification tactics |
+| Flocq | Floating-point formalization library |
+| Coq-Interval | Interval arithmetic / approximation-error bounds |
+| Coquelicot | Real analysis library (Coq-Interval's dependency) |
+| Gappa | Rounding-error prover binary, kernel-checked via `gappa_proof` (see `rocq:defs.bzl`) |
+| gappalib-coq | Gappa's Rocq support library (built from source against Flocq) |
 | rocq-of-rust | Rust-to-Rocq translator (pinned version) |
 
 ## Supported Platforms
@@ -208,6 +213,13 @@ bazel build //examples/rust_to_rocq:advanced_verified
 bazel test //examples/rust_to_rocq:point_proofs_test
 ```
 
+See `examples/gappa_proof/` for a machine-checked floating-point error-bound
+proof (Gappa + Flocq), kernel-checked by Rocq:
+
+```bash
+bazel test //examples/gappa_proof:rounding_bound_test
+```
+
 ## License
 
 Apache-2.0 &mdash; see [LICENSE](LICENSE).
@@ -216,6 +228,6 @@ Apache-2.0 &mdash; see [LICENSE](LICENSE).
 
 <div align="center">
 
-<sub>Part of <a href="https://github.com/pulseengine">PulseEngine</a> &mdash; formally verified WebAssembly toolchain for safety-critical systems</sub>
+<sub>Part of <a href="https://github.com/pulseengine">PulseEngine</a> &mdash; Bazel rules powering the Rocq theorem-proving toolchain</sub>
 
 </div>
