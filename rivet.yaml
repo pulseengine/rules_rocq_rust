@@ -1,0 +1,11 @@
+project:
+  name: rules_rocq_rust
+  version: "0.1.0"
+  schemas:
+    - common
+    - stpa
+    - dev
+
+sources:
+  - path: artifacts
+    format: generic-yaml
