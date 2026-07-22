@@ -22,6 +22,7 @@ def _rocq_library_impl(ctx):
 
     Uses the Rocq toolchain from nixpkgs to compile proofs.
     """
+
     # Validate source files
     sources = ctx.files.srcs
     if not sources:
@@ -72,10 +73,12 @@ def _rocq_library_impl(ctx):
         # Get the relative path from the source file
         # E.g., "RocqOfRust/RocqOfRust.v" should become "RocqOfRust/RocqOfRust.vo"
         rel_path = src.short_path
+
         # Remove package prefix if present (for external sources)
         if rel_path.startswith("../"):
             # External source - extract relevant part after last known directory
             parts = rel_path.split("/")
+
             # Find the logical path component
             if logical_path in rel_path:
                 idx = rel_path.find(logical_path)
@@ -370,4 +373,93 @@ rocq_proof_test = rule(
     },
     test = True,
     doc = "Verifies Rocq proof files compile successfully",
+)
+
+def _rocq_interval_proof_impl(ctx):
+    """Compile a .v file against the Coq-Interval environment (DD-003).
+
+    Coq-Interval's real dependency closure (mathcomp-boot/fingroup, bignums,
+    hierarchy-builder, the coq-elpi OCaml plugin) is resolved by a dedicated
+    coq_9_0.withPackages(...) environment (@rocq_interval_env) rather than by
+    the primary toolchain's hand-wired extra_libs -- see rules_rocq_rust#43.
+    That composed coqc already has its own default load path (Stdlib,
+    Flocq, Interval, Coquelicot, mathcomp, Bignums, HB, elpi), so no -Q
+    flags are needed here.
+    """
+    sources = ctx.files.srcs
+    if not sources:
+        fail("rocq_interval_proof requires at least one source file")
+    for src in sources:
+        if not src.path.endswith(".v"):
+            fail("rocq_interval_proof only accepts .v files, got: " + src.path)
+
+    coqc = ctx.executable._interval_coqc
+    env_files = ctx.files._interval_env_files
+
+    compiled_files = []
+    for src in sources:
+        vo_file = ctx.actions.declare_file(src.basename[:-len(".v")] + ".vo")
+        glob_file = ctx.actions.declare_file(src.basename[:-len(".v")] + ".glob")
+
+        args = ctx.actions.args()
+        args.add("-q")
+        for flag in ctx.attr.extra_flags:
+            args.add(flag)
+        args.add("-o", vo_file)
+        args.add(src)
+
+        ctx.actions.run(
+            executable = coqc,
+            arguments = [args],
+            # The composed coqc's own transitive closure (mathcomp, elpi's
+            # OCaml plugin, ...) lives at its own nix store paths outside
+            # this action's declared inputs; same rationale as rocq_library's
+            # extra_libs no-sandbox case -- hermeticity comes from nix's
+            # immutable store, not the Bazel sandbox, for this action.
+            inputs = [src] + env_files,
+            outputs = [vo_file, glob_file],
+            mnemonic = "CoqCompileInterval",
+            progress_message = "Compiling Coq-Interval proof %{input}",
+            execution_requirements = {"no-sandbox": "1"},
+        )
+        compiled_files.append(vo_file)
+
+    compiled_depset = depset(compiled_files)
+    return [
+        DefaultInfo(
+            files = compiled_depset,
+            runfiles = ctx.runfiles(files = sources + compiled_files),
+        ),
+        RocqInfo(
+            sources = depset(sources),
+            compiled = compiled_depset,
+            include_paths = [],
+            output_dir = "",
+            transitive_deps = depset(sources),
+        ),
+    ]
+
+rocq_interval_proof = rule(
+    implementation = _rocq_interval_proof_impl,
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = [".v"],
+            doc = "Rocq source files needing Coq-Interval (e.g. Require Import Interval.Tactic)",
+        ),
+        "extra_flags": attr.string_list(
+            doc = "Extra flags to pass to coqc",
+            default = [],
+        ),
+        "_interval_coqc": attr.label(
+            default = Label("@rocq_interval_env//:coqc"),
+            allow_single_file = True,
+            executable = True,
+            cfg = "exec",
+        ),
+        "_interval_env_files": attr.label(
+            default = Label("@rocq_interval_env//:user_contrib"),
+            allow_files = True,
+        ),
+    },
+    doc = "Compiles a Rocq proof using Coq-Interval's composed environment (DD-003); the target fails like any other Rocq proof if the kernel rejects it.",
 )

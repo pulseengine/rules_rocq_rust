@@ -67,3 +67,24 @@ claims:
         path: examples/gappa_proof/BUILD.bazel
       - kind: file-exists
         path: examples/gappa_proof/rounding_bound.gappa
+
+  # #43/DD-003: Coq-Interval claimed "usable" must mean a real Interval.Tactic
+  # proof compiles, not just that the package is fetched (the #41/#43 mistake).
+  # Structural evidence: the dedicated environment + rule this depends on must
+  # exist, and the example's own pointer must resolve to a real target.
+  - id: EXAMPLES-INTERVAL-PROOF
+    doc: README.md
+    text: "bazel test //examples/interval_proof:smoke_test"
+    evidence:
+      - kind: file-exists
+        path: examples/interval_proof/BUILD.bazel
+      - kind: file-exists
+        path: examples/interval_proof/smoke.v
+      - kind: count-min
+        pattern: 'rocq_interval_env'
+        glob: ['rocq/extensions.bzl']
+        min: 1
+      - kind: count-min
+        pattern: 'rocq_interval_proof'
+        glob: ['rocq/private/rocq.bzl']
+        min: 1

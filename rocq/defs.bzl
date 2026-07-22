@@ -1,9 +1,10 @@
 """Public API for Rocq compilation rules."""
 
-load("//rocq/private:rocq.bzl", _rocq_library = "rocq_library", _rocq_proof_test = "rocq_proof_test")
+load("//rocq/private:rocq.bzl", _rocq_interval_proof = "rocq_interval_proof", _rocq_library = "rocq_library", _rocq_proof_test = "rocq_proof_test")
 
 rocq_library = _rocq_library
 rocq_proof_test = _rocq_proof_test
+rocq_interval_proof = _rocq_interval_proof
 
 def gappa_proof(name, src, deps = [], extra_flags = [], visibility = None):
     """Runs `gappa -Bcoq` on a `.gappa` source and kernel-checks the result.

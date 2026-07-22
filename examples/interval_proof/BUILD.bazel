@@ -1,0 +1,16 @@
+# Smoke test for the Coq-Interval environment (DD-003, #43): proves
+# Require Import Interval.Tactic actually resolves and a proof compiles --
+# not just that the coq-interval package is fetched.
+
+load("@rules_rocq_rust//rocq:defs.bzl", "rocq_interval_proof", "rocq_proof_test")
+
+rocq_interval_proof(
+    name = "smoke",
+    srcs = ["smoke.v"],
+)
+
+rocq_proof_test(
+    name = "smoke_test",
+    srcs = [],
+    deps = [":smoke"],
+)

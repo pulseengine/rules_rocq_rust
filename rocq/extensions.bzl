@@ -224,6 +224,12 @@ filegroup(
 '''
 
 # BUILD file for Coq-Interval (interval arithmetic / approximation-error bounds)
+# NOTE: this filegroup alone is NOT enough to `Require Import Interval.Tactic`
+# -- Interval's real dependency closure (per nixpkgs
+# coqPackages.interval.propagatedBuildInputs) is bignums + coquelicot + flocq +
+# mathcomp-boot + mathcomp-fingroup, and mathcomp-boot transitively needs
+# hierarchy-builder + the coq-elpi OCaml plugin. See @rocq_interval_env below
+# (DD-003) for the environment that actually resolves the whole closure.
 _INTERVAL_BUILD_FILE = '''
 package(default_visibility = ["//visibility:public"])
 
@@ -242,6 +248,32 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "coquelicot",
+    srcs = glob([
+        "lib/coq/**/*.vo",
+        "lib/coq/**/*.glob",
+    ], allow_empty = True),
+)
+'''
+
+# BUILD file for the Coq-Interval environment (DD-003). Interval's real
+# dependency closure includes mathcomp-boot/mathcomp-fingroup (which need
+# hierarchy-builder, which needs the coq-elpi OCaml plugin, which needs its
+# own OCaml findlib closure) -- hand-wiring each as a separate nixpkgs_package
+# doesn't scale past this point (see rules_rocq_rust#43's review). This is a
+# single `coq_9_0.withPackages(...)`-composed coqc that resolves the whole
+# closure the way nixpkgs is designed to. Its own subdirs are already named
+# Flocq/Interval/Coquelicot/mathcomp/Bignums/HB/elpi -- exposing user-contrib
+# with an empty logical root maps each to its correct name in one -Q.
+_INTERVAL_ENV_BUILD_FILE = '''
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "coqc",
+    srcs = ["bin/coqc"],
+)
+
+filegroup(
+    name = "user_contrib",
     srcs = glob([
         "lib/coq/**/*.vo",
         "lib/coq/**/*.glob",
@@ -389,6 +421,18 @@ import (builtins.fetchTarball {{
             repository = nixpkgs_repo,
             attribute_path = "coqPackages.interval",
             build_file_content = _INTERVAL_BUILD_FILE,
+        )
+
+        # Coq-Interval environment (DD-003) -- a coq_9_0.withPackages(...)
+        # composition that resolves Interval's whole transitive closure
+        # (bignums, mathcomp-boot/fingroup, hierarchy-builder, coq-elpi and
+        # its own OCaml deps) the way nixpkgs is designed to, instead of
+        # hand-wiring each nixpkgs sub-package (see rules_rocq_rust#43).
+        nixpkgs_package(
+            name = "rocq_interval_env",
+            repository = nixpkgs_repo,
+            nix_file_content = "(import <nixpkgs> { config = {}; overlays = []; }).coq_9_0.withPackages (p: [ p.flocq p.interval p.coquelicot ])",
+            build_file_content = _INTERVAL_ENV_BUILD_FILE,
         )
 
         # Coquelicot - real analysis library, Coq-Interval's dependency (#37)

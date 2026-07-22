@@ -118,6 +118,61 @@ artifacts:
       - type: satisfies
         target: REQ-002
 
+  - id: DD-003
+    type: design-decision
+    title: Use coq_9_0.withPackages to resolve Coq-Interval's transitive closure, instead of hand-wiring each nixpkgs sub-package
+    status: implemented
+    description: >
+      Fix for the Coq-Interval usability gap (#43): `Require Import
+      Interval.Tactic` failed because #41 fetched `coqPackages.interval` but
+      never wired its real dependency closure, and #43's own fix attempt
+      (`coqPackages.mathcomp`) turned out to be a 1-file umbrella re-export,
+      not the real `mathcomp-boot` package the error named.
+    fields:
+      decision: >
+        Coq-Interval's real dependency closure is bignums + coquelicot +
+        flocq + mathcomp-boot + mathcomp-fingroup (per nixpkgs
+        `coqPackages.interval.propagatedBuildInputs`), and mathcomp-boot
+        itself needs hierarchy-builder, which needs coq-elpi (a real OCaml
+        findlib plugin, not a plain .v library) -- whose own OCaml deps
+        (ppx_deriving.runtime, ...) go deeper still. Hand-wiring each as a
+        separate nixpkgs_package + -Q flag (the pattern this toolchain uses
+        for coqutil/Hammer/smpl/Flocq/Interval/Coquelicot) doesn't scale past
+        this point. `@rocq_interval_env` (rocq/extensions.bzl) is a single
+        `coq_9_0.withPackages (p: [p.flocq p.interval p.coquelicot])`
+        composition that resolves the *entire* transitive closure
+        automatically, exposed as its own `coqc` + `user-contrib` tree. A new
+        `rocq_interval_proof` rule (rocq/private/rocq.bzl) compiles against
+        this dedicated environment -- it needs no `-Q` flags at all, since
+        the composed coqc already has its own default load path. Verified:
+        `bazel test //examples/interval_proof:smoke_test` compiles `Require
+        Import Interval.Tactic. Goal (1+1<=3)%R. Proof. interval. Qed.`
+        cleanly -- PASSED.
+      rationale: >
+        withPackages is nixpkgs' own answer to exactly this problem class
+        (deep, OCaml-plugin-laden Coq dependency graphs) -- reinventing its
+        closure resolution by hand is the same mistake #41 already made once
+        (missing bignums) and #43 repeated (wrong mathcomp attribute, still
+        missing bignums/HB/elpi). The primary toolchain (coqutil/Hammer/smpl,
+        rocq-of-rust) is left untouched -- this is a second, dedicated
+        environment scoped to the approximation-layer packages only, since
+        `rocq_toolchain_info` assumes one `coqc` for every compile and
+        unifying the whole toolchain onto `withPackages` is a bigger,
+        separate change not needed to close this gap.
+      alternatives: >
+        Continue hand-wiring mathcomp-boot + mathcomp-fingroup + bignums +
+        hierarchy-builder + coq-elpi + coq-elpi's own OCaml findlib deps
+        individually -- rejected: the OCaml findlib chain for elpi didn't
+        terminate in manual testing (ppx_deriving.runtime was the next
+        missing piece with no guarantee it's the last). Unifying the entire
+        toolchain onto one withPackages-composed coqc (retiring the
+        hand-rolled Hammer OCAMLPATH wiring too) -- rejected for now as
+        larger-blast-radius than this fix needs; worth revisiting later.
+      source-ref: "pulseengine/rules_rocq_rust#43, #41"
+    links:
+      - type: satisfies
+        target: REQ-002
+
   - id: FEAT-001
     type: feature
     title: Machine-checked FP error-bound proofs (Flocq + Gappa + Coq-Interval)
@@ -125,18 +180,28 @@ artifacts:
     description: >
       Toolchain capability requested in #37, enabling a raise-assurance proof
       on top of relay's existing exhaustive-enumeration empirical bound.
-      Verified via `bazel test //examples/gappa_proof:rounding_bound_test`,
-      which exercises the full chain: a `.gappa` rounding-bound statement,
-      Gappa's `-Bcoq` codegen, and a real Rocq kernel check of the emitted
-      proof term against gappalib-coq/Flocq — PASSED.
+
+      Rounding layer (Gappa + Flocq): verified via `bazel test
+      //examples/gappa_proof:rounding_bound_test` -- a `.gappa`
+      rounding-bound statement, Gappa's `-Bcoq` codegen, and a real Rocq
+      kernel check of the emitted proof term against gappalib-coq/Flocq --
+      PASSED.
+
+      Approximation layer (Coq-Interval): initially fetched but not usable
+      (#43); fixed via DD-003 (`coq_9_0.withPackages`) and verified via
+      `bazel test //examples/interval_proof:smoke_test` -- a real `Require
+      Import Interval.Tactic` proof compiles end-to-end -- PASSED.
     fields:
       phase: phase-1
       acceptance-criteria:
         - "Toolchain flake provides flocq, gappa (binary), gappalib-coq, interval, coquelicot, pinned against the bundled Rocq version -- DONE (rocq/extensions.bzl, rocq/private/gappalib_repository.bzl)"
         - "rocq_library (or a new gappa_proof rule) can depend on the new packages' .vo/include paths -- DONE (gappa_proof macro, rocq/defs.bzl)"
+        - "Coq-Interval is actually usable (Require Import Interval.Tactic resolves and a smoke proof compiles) -- DONE (rocq_interval_proof + @rocq_interval_env, DD-003, examples/interval_proof, bazel test PASSED)"
         - "A minimal example proves one f32 rounding bound end-to-end, kernel-checked by Rocq, as the template for relay's kernels -- DONE (examples/gappa_proof, bazel test PASSED)"
     links:
       - type: satisfies
         target: REQ-002
       - type: implements
         target: DD-001
+      - type: implements
+        target: DD-003

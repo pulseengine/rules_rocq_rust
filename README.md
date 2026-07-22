@@ -174,7 +174,7 @@ Test rule that verifies proofs compile successfully.
 | Hammer | Automated proof tactics |
 | smpl | Simplification tactics |
 | Flocq | Floating-point formalization library |
-| Coq-Interval | Interval arithmetic / approximation-error bounds |
+| Coq-Interval | Interval arithmetic / approximation-error bounds, usable via `rocq_interval_proof` (see `rocq:defs.bzl`) -- Coq-Interval's real dependency closure (mathcomp, bignums, hierarchy-builder, coq-elpi) is resolved by a dedicated `coq_9_0.withPackages(...)` environment, not the primary toolchain |
 | Coquelicot | Real analysis library (Coq-Interval's dependency) |
 | Gappa | Rounding-error prover binary, kernel-checked via `gappa_proof` (see `rocq:defs.bzl`) |
 | gappalib-coq | Gappa's Rocq support library (built from source against Flocq) |
@@ -218,6 +218,13 @@ proof (Gappa + Flocq), kernel-checked by Rocq:
 
 ```bash
 bazel test //examples/gappa_proof:rounding_bound_test
+```
+
+See `examples/interval_proof/` for a smoke test proving Coq-Interval is
+actually usable (`Require Import Interval.Tactic`), not just fetched:
+
+```bash
+bazel test //examples/interval_proof:smoke_test
 ```
 
 ## License
