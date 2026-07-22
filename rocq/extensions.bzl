@@ -105,6 +105,7 @@ rocq_toolchain_info(
     smpl_ocaml_plugins = "@rocq_smpl//:ocaml_plugins",
     flocq = "@rocq_flocq//:flocq",
     interval = "@rocq_interval//:interval",
+    mathcomp = "@rocq_mathcomp//:mathcomp",
     coquelicot = "@rocq_coquelicot//:coquelicot",
     gappalib = "@rocq_gappalib//:gappalib",
 )
@@ -229,6 +230,19 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "interval",
+    srcs = glob([
+        "lib/coq/**/*.vo",
+        "lib/coq/**/*.glob",
+    ], allow_empty = True),
+)
+'''
+
+# BUILD file for Mathematical Components (Coq-Interval's dependency)
+_MATHCOMP_BUILD_FILE = '''
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "mathcomp",
     srcs = glob([
         "lib/coq/**/*.vo",
         "lib/coq/**/*.glob",
@@ -389,6 +403,16 @@ import (builtins.fetchTarball {{
             repository = nixpkgs_repo,
             attribute_path = "coqPackages.interval",
             build_file_content = _INTERVAL_BUILD_FILE,
+        )
+
+        # Mathematical Components - Coq-Interval's runtime dependency; without
+        # its .vo on the load path `Require Import Interval.Tactic` fails with
+        # "Cannot load mathcomp.boot.seq". (relay#... FP approximation track)
+        nixpkgs_package(
+            name = "rocq_mathcomp",
+            repository = nixpkgs_repo,
+            attribute_path = "coqPackages.mathcomp",
+            build_file_content = _MATHCOMP_BUILD_FILE,
         )
 
         # Coquelicot - real analysis library, Coq-Interval's dependency (#37)
