@@ -59,8 +59,11 @@ rocq.toolchain(
 # hammer_tactics is a separate package from hammer (plugin vs library)
 # flocq/interval/coquelicot/gappa_bin/gappalib enable machine-checked
 # floating-point error-bound proofs (#37); gappalib is built from source
-# against Flocq, same as smpl is built from source against Rocq 9.0
-use_repo(rocq, "rocq_coquelicot", "rocq_coqutil", "rocq_flocq", "rocq_gappa_bin", "rocq_gappalib", "rocq_hammer", "rocq_hammer_tactics", "rocq_interval", "rocq_smpl", "rocq_stdlib", "rocq_toolchains")
+# against Flocq, same as smpl is built from source against Rocq 9.0.
+# rocq_interval_env is a separate coq_9_0.withPackages(...) composition that
+# resolves Coq-Interval's real transitive closure (mathcomp/bignums/HB/elpi)
+# for rocq_interval_proof -- see DD-003 / rules_rocq_rust#43.
+use_repo(rocq, "rocq_coquelicot", "rocq_coqutil", "rocq_flocq", "rocq_gappa_bin", "rocq_gappalib", "rocq_hammer", "rocq_hammer_tactics", "rocq_interval", "rocq_interval_env", "rocq_smpl", "rocq_stdlib", "rocq_toolchains")
 
 # Register Rocq toolchain
 register_toolchains("@rocq_toolchains//:all")

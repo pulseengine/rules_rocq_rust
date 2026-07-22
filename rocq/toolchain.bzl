@@ -79,12 +79,6 @@ def _rocq_toolchain_info_impl(ctx):
         if path:
             extra_libs.append((ctx.files.interval, "Interval", path))
 
-    # Mathematical Components - Coq-Interval's dependency (mathcomp.boot / .ssreflect).
-    if ctx.files.mathcomp:
-        path = _find_lib_path(ctx.files.mathcomp, "/mathcomp/", "mathcomp")
-        if path:
-            extra_libs.append((ctx.files.mathcomp, "mathcomp", path))
-
     # Coquelicot - real analysis library (Coq-Interval's dependency)
     if ctx.files.coquelicot:
         path = _find_lib_path(ctx.files.coquelicot, "/Coquelicot/", "Coquelicot")
@@ -191,10 +185,6 @@ rocq_toolchain_info = rule(
         "interval": attr.label(
             allow_files = True,
             doc = "Coq-Interval library .vo files (optional)",
-        ),
-        "mathcomp": attr.label(
-            allow_files = True,
-            doc = "Mathematical Components library .vo files (Coq-Interval dep; optional)",
         ),
         "coquelicot": attr.label(
             allow_files = True,
