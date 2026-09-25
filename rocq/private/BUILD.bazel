@@ -1,1 +1,3 @@
 # Private implementation package for Rocq rules.
+
+exports_files(["assumptions_check.py"])

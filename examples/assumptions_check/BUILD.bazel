@@ -1,0 +1,28 @@
+# Demonstrates the Print Assumptions gate (issue #45, REQ-004, CC-003): a
+# rocq_proof_test only proves the kernel accepted the proof SCRIPT -- it says
+# nothing about whether that script quietly rests on `Admitted` or a
+# project-local `Axiom`. rocq_assumptions_test closes that gap.
+#
+# The negative case (a proof that depends on an unlisted axiom, which must
+# FAIL the build) is exercised in rocq/private/assumptions_check_test.py's
+# unit tests and manually verified with `bazel build` against a
+# deliberately-tainted proof -- not shipped here as a standing target, since
+# a target expected to fail would make `bazel test //...` permanently red.
+
+load("@rules_rocq_rust//rocq:defs.bzl", "rocq_assumptions_test", "rocq_library", "rocq_proof_test")
+
+rocq_library(
+    name = "clean",
+    srcs = ["clean.v"],
+)
+
+rocq_proof_test(
+    name = "clean_test",
+    srcs = [],
+    deps = [":clean"],
+)
+
+rocq_assumptions_test(
+    name = "clean_assumptions_test",
+    deps = [":clean"],
+)
