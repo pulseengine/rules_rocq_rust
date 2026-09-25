@@ -463,3 +463,134 @@ rocq_interval_proof = rule(
     },
     doc = "Compiles a Rocq proof using Coq-Interval's composed environment (DD-003); the target fails like any other Rocq proof if the kernel rejects it.",
 )
+
+def _rocq_assumptions_test_impl(ctx):
+    """Checks every named theorem in `deps` for unlisted axioms (issue #45).
+
+    Runs `Print Assumptions` on each and fails the build if anything beyond
+    `allowed_axioms` is load-bearing (REQ-003 / CC-003). A green
+    rocq_proof_test only proves the kernel accepted the proof SCRIPT; it says
+    nothing about whether that script quietly rests on `Admitted` or a
+    project-local `Axiom` -- this is the check that closes
+    that gap. Flat targets only; see assumptions_check.py's module docstring.
+    """
+    toolchain = ctx.toolchains["@rules_rocq_rust//rocq:toolchain_type"]
+    if not toolchain or not hasattr(toolchain, "rocq_info"):
+        fail("rocq_assumptions_test requires the Rocq toolchain to be registered (no fallback -- an unchecked assumptions test is worse than no test).")
+    rocq_info = toolchain.rocq_info
+    coqc = rocq_info.coqc
+    if not coqc:
+        fail("rocq_assumptions_test: toolchain has no coqc.")
+
+    qflags = []
+    all_source_files = []
+    source_specs = []
+    dep_vo_files = []
+    if hasattr(rocq_info, "stdlib_path") and rocq_info.stdlib_path:
+        qflags.append(rocq_info.stdlib_path + ":Stdlib")
+    if hasattr(rocq_info, "extra_libs"):
+        for lib_files, logical_name, lib_path in rocq_info.extra_libs:
+            if lib_path:
+                qflags.append(lib_path + ":" + logical_name)
+
+    for dep in ctx.attr.deps:
+        if RocqInfo not in dep:
+            fail("rocq_assumptions_test: dep {} does not provide RocqInfo".format(dep.label))
+        info = dep[RocqInfo]
+        for phys, logical in info.include_paths:
+            qflags.append(phys + ":" + logical)
+        if not info.include_paths:
+            fail("rocq_assumptions_test: dep {} registered no include path -- cannot resolve its module name.".format(dep.label))
+
+        # `_rocq_library_impl` always appends the target's OWN (output_dir,
+        # logical_path) LAST -- see rocq_library's `this_include_paths`. Flat
+        # targets only: this assumes each dep's own sources sit directly
+        # under that self-registered logical prefix.
+        self_logical = info.include_paths[-1][1]
+        for src in info.sources.to_list():
+            source_specs.append(src.path + ":" + self_logical)
+            all_source_files.append(src)
+        if info.compiled:
+            dep_vo_files.extend(info.compiled.to_list())
+
+    driver = ctx.actions.declare_file(ctx.label.name + "_driver.v")
+    report = ctx.actions.declare_file(ctx.label.name + ".assumptions.json")
+    marker = ctx.actions.declare_file(ctx.label.name + "_marker.txt")
+
+    args = ctx.actions.args()
+    args.add("--coqc", coqc)
+    for q in qflags:
+        args.add("--qflag", q)
+    for spec in source_specs:
+        args.add("--source", spec)
+    for axiom in ctx.attr.allowed_axioms:
+        args.add("--allowed-axiom", axiom)
+    args.add("--driver-out", driver)
+    args.add("--report-out", report)
+    args.add("--marker-out", marker)
+
+    stdlib_files = rocq_info.stdlib.to_list() if hasattr(rocq_info, "stdlib") and rocq_info.stdlib else []
+    extra_lib_files = []
+    if hasattr(rocq_info, "extra_libs"):
+        for lib_files, _, _ in rocq_info.extra_libs:
+            extra_lib_files.extend(lib_files)
+
+    ctx.actions.run(
+        executable = ctx.executable._checker,
+        arguments = [args],
+        inputs = depset(
+            all_source_files + dep_vo_files + stdlib_files + extra_lib_files,
+        ),
+        outputs = [driver, report, marker],
+        mnemonic = "RocqPrintAssumptions",
+        progress_message = "Checking Rocq proof assumptions for %{label}",
+        # Same rationale as rocq_library's extra_libs case: the nix-store
+        # coqc's own transitive closure lives outside what Bazel's sandbox
+        # would otherwise expose; hermeticity comes from nix's immutable
+        # store, not the sandbox, for this action.
+        execution_requirements = {"no-sandbox": "1"},
+    )
+
+    # The check ran as a BUILD-time action above -- if it found a violation,
+    # this rule already failed before reaching here. The executable below is
+    # a formality to satisfy Bazel's test-rule contract (test = True requires
+    # one); the real gate is the action's own exit code, same as
+    # rocq_proof_test's kernel check happening at compile time, not test time.
+    test_script = ctx.actions.declare_file(ctx.label.name + "_test.sh")
+    ctx.actions.write(
+        output = test_script,
+        content = "#!/bin/bash\nset -e\necho \"assumptions check passed:\"\ncat {}\n".format(marker.short_path),
+        is_executable = True,
+    )
+
+    return [
+        DefaultInfo(
+            executable = test_script,
+            files = depset([report, marker]),
+            runfiles = ctx.runfiles(files = [marker, report]),
+        ),
+    ]
+
+rocq_assumptions_test = rule(
+    implementation = _rocq_assumptions_test_impl,
+    test = True,
+    attrs = {
+        "deps": attr.label_list(
+            providers = [[RocqInfo]],
+            mandatory = True,
+            doc = "rocq_library (or gappa_proof / rocq_interval_proof) targets to check",
+        ),
+        "allowed_axioms": attr.string_list(
+            default = [],
+            doc = "Axiom/Admitted-obligation names that are permitted to appear (e.g. accepted classical axioms). Empty by default -- any axiom or Admitted proof fails the build.",
+        ),
+        "_checker": attr.label(
+            default = Label("//rocq/private:assumptions_check.py"),
+            allow_single_file = True,
+            executable = True,
+            cfg = "exec",
+        ),
+    },
+    toolchains = ["@rules_rocq_rust//rocq:toolchain_type"],
+    doc = "Runs `Print Assumptions` on every named theorem in `deps`; fails on any axiom or Admitted obligation not in `allowed_axioms`. Emits `<name>.assumptions.json` as machine-readable trusted-base evidence.",
+)

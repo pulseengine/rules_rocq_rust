@@ -144,3 +144,55 @@ artifacts:
         target: UCA-002
       - type: prevents
         target: H-002
+
+  - id: H-003
+    type: hazard
+    title: A theorem is reported proved while its transitive closure rests on an unlisted axiom or Admitted obligation
+    status: draft
+    description: "A rocq_proof_test can be green while the theorem it checks quietly depends on an Admitted proof or a project-local Axiom -- the Rocq kernel accepted the SCRIPT, but the guarantee is not enforced on the path that executes. Distinct from the toolchain-not-running-the-kernel hazard: here the kernel genuinely ran, but on a proof obligation that was never actually discharged. Filed from issue #45's adequacy-gates research."
+    fields:
+      severity: critical
+    links:
+      - type: leads-to-loss
+        target: L-001
+    provenance:
+      created-by: ai
+      model: claude-sonnet-5
+      timestamp: 2026-09-25T04:23:17Z
+
+  - id: UCA-003
+    type: uca
+    title: Proof-obligation rule reports PASS while the theorem's Print Assumptions closure includes an unlisted axiom
+    status: draft
+    description: Providing a passing signal for a theorem whose transitive assumption closure names an Axiom or Admitted obligation outside an explicit allowlist leads to H-003.
+    fields:
+      context: Any rocq_library/rocq_proof_test target whose proof compiles (kernel accepts the script) but rests on Admitted or a project Axiom.
+      uca-type: providing
+    links:
+      - type: issued-by
+        target: CTRL-001
+      - type: leads-to-hazard
+        target: H-003
+    provenance:
+      created-by: ai
+      model: claude-sonnet-5
+      timestamp: 2026-09-25T04:23:21Z
+
+  - id: CC-003
+    type: controller-constraint
+    title: Proof-obligation rules must reject any theorem whose assumption closure includes an axiom outside an explicit allowlist
+    status: draft
+    description: Inverts UCA-003.
+    fields:
+      constraint: A rocq_assumptions_test target must run Print Assumptions on every named theorem in its deps and fail the build unless every axiom (including Admitted obligations, which surface as an axiom named after the theorem) is in its allowed_axioms list. Default allowlist is empty -- any axiom or Admitted proof fails unless explicitly permitted.
+    links:
+      - type: constrains-controller
+        target: CTRL-001
+      - type: inverts-uca
+        target: UCA-003
+      - type: prevents
+        target: H-003
+    provenance:
+      created-by: ai
+      model: claude-sonnet-5
+      timestamp: 2026-09-25T04:23:25Z

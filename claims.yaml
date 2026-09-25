@@ -88,3 +88,25 @@ claims:
         pattern: 'rocq_interval_proof'
         glob: ['rocq/private/rocq.bzl']
         min: 1
+
+  # #45/REQ-003: the vacuous-proof gate must actually exist as a real rule and
+  # actually detect axioms/Admitted, not just claim to in prose. Structural
+  # evidence for the rule + the example's own pointer resolving to a real
+  # target; the detection behavior itself is verified by
+  # rocq/private/assumptions_check_test.py's unit tests against real captured
+  # coqc output (parse_print_assumptions_output), which is the part a static
+  # file-exists check can't reach.
+  - id: ASSUMPTIONS-GATE
+    doc: README.md
+    text: "bazel test //examples/assumptions_check:clean_assumptions_test"
+    evidence:
+      - kind: file-exists
+        path: examples/assumptions_check/BUILD.bazel
+      - kind: file-exists
+        path: rocq/private/assumptions_check.py
+      - kind: file-exists
+        path: rocq/private/assumptions_check_test.py
+      - kind: count-min
+        pattern: 'rocq_assumptions_test'
+        glob: ['rocq/private/rocq.bzl']
+        min: 1

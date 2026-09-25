@@ -205,3 +205,56 @@ artifacts:
         target: DD-001
       - type: implements
         target: DD-003
+
+  - id: REQ-003
+    type: requirement
+    title: The toolchain shall detect and reject theorems whose proof rests on an unlisted axiom or Admitted obligation
+    status: implemented
+    description: "Add a Print Assumptions audit gate: rocq_assumptions_test runs Print Assumptions on every named theorem in its deps and fails the build unless every axiom is in an explicit allowlist. Emits machine-readable <name>.assumptions.json evidence rather than a hand-maintained trusted-base count."
+    fields:
+      category: functional
+      priority: must
+      upstream-ref: pulseengine/rules_rocq_rust#45
+    links:
+      - type: constraint-satisfies
+        target: CC-003
+    provenance:
+      created-by: ai
+      model: claude-sonnet-5
+      timestamp: 2026-09-25T04:23:30Z
+
+  - id: DD-004
+    type: design-decision
+    title: Implement Print Assumptions auditing as a dedicated rocq_assumptions_test rule; defer mCoq-style mutation analysis to a future milestone
+    status: implemented
+    description: "Response to issue #45's three-part adequacy-gates ask."
+    fields:
+      alternatives: "mCoq-style mutation analysis of Rocq definitions (Celik et al., ASE 2019) -- the proof-side dual of the cargo-mutants gate already run on Rust, and a strictly stronger adequacy signal (catches an under-constrained proof, not just a vacuous one). Explicitly deferred, per the reporter's own scoping: 2019-vintage tooling tied to specific Coq/OCaml versions, small-community, and -- following the coarse-to-fine adequacy ordering (Google SoC formal sign-off; DVCon Taiwan 2023) -- mutation analysis is the most compute-hungry adequacy signal and belongs on milestones, never every commit. Revisit if/when a milestone specifically needs it; not a default gate."
+      decision: "A new rocq_assumptions_test rule (rocq/private/rocq.bzl), not an attribute bolted onto the existing proof-obligation test rule as #45 originally suggested -- the two checks have different failure semantics (proof-obligation compile failure vs. assumption-audit failure) and keeping them as separate targets lets a consumer opt into the stricter gate per-target rather than unconditionally on every proof. The rule extracts theorem names from each dep's own .v sources, generates a driver .v issuing Print Assumptions per name, compiles it against the toolchain's real coqc, and parses the output: anything other than 'Closed under the global context' must have every named axiom in an explicit allowed_axioms list (default empty). An Admitted proof surfaces as an axiom named after the theorem itself, verified empirically before writing the parser. Emits <name>.assumptions.json as machine-readable evidence. Scope: flat targets only (theorem module path = logical_prefix + basename); a nested multi-file library is out of scope for now."
+      rationale: "Print Assumptions is Coq's own native, zero-dependency mechanism for exactly this question -- no new tooling to trust, and it composes with the existing philosophy that the action's own exit code is the oracle, never a separate status flag. Verified via real bazel build/test against three cases: a clean theorem (passes), a theorem depending on a real Axiom plus a separate Admitted theorem (both correctly fail with named violations), and the same tainted pair with a matching allowed_axioms list (passes)."
+      source-ref: pulseengine/rules_rocq_rust#45
+    links:
+      - type: satisfies
+        target: REQ-003
+    provenance:
+      created-by: ai
+      model: claude-sonnet-5
+      timestamp: 2026-09-25T04:23:43Z
+
+  - id: FEAT-002
+    type: feature
+    title: Vacuous-proof detection (Print Assumptions gate)
+    status: implemented
+    description: "Toolchain capability requested in #45: detect and reject a proof that is kernel-accepted but rests on an unlisted Axiom or Admitted obligation. Verified via bazel build/test against a clean example (passes), a deliberately-tainted proof with a real Axiom + a separate Admitted theorem (both correctly rejected, verified manually and via rocq/private/assumptions_check_test.py's unit tests against real captured coqc output), and the same tainted pair with a matching allowed_axioms list (passes)."
+    fields:
+      acceptance-criteria: "[\"rocq_assumptions_test rule exists and is exported from rocq:defs.bzl -- DONE (rocq/private/rocq.bzl, rocq/defs.bzl)\", \"Fails the build on a real Axiom dependency and on a real Admitted proof, both correctly named in the diagnostic -- DONE, verified via bazel build against a manual spike (both violations detected and named correctly)\", \"allowed_axioms lets an explicitly-permitted axiom through -- DONE, verified via bazel build\", \"Emits machine-readable <name>.assumptions.json evidence -- DONE\", \"A clean, checked-in example demonstrates the gate passing in CI -- DONE (examples/assumptions_check, bazel test PASSED)\"]"
+      phase: phase-1
+    links:
+      - type: satisfies
+        target: REQ-003
+      - type: implements
+        target: DD-004
+    provenance:
+      created-by: ai
+      model: claude-sonnet-5
+      timestamp: 2026-09-25T04:23:52Z

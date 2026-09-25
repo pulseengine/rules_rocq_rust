@@ -227,6 +227,52 @@ actually usable (`Require Import Interval.Tactic`), not just fetched:
 bazel test //examples/interval_proof:smoke_test
 ```
 
+See `examples/assumptions_check/` for the `Print Assumptions` gate (below) in
+action:
+
+```bash
+bazel test //examples/assumptions_check:clean_assumptions_test
+```
+
+## Trust Boundary
+
+**A green `rocq_proof_test` proves the Rocq kernel accepted a proof script —
+it does not by itself prove that script is free of `Admitted` obligations or
+project-local `Axiom`s.** A proof resting on either is a vacuous
+verification: the guarantee is not enforced on the path that executes.
+
+Use `rocq_assumptions_test` to close that gap. It runs Rocq's own
+`Print Assumptions` on every named theorem in a target and fails the build if
+anything beyond an explicit `allowed_axioms` list is load-bearing — an
+`Admitted` proof surfaces as an axiom named after the theorem itself, so it
+cannot hide:
+
+```starlark
+load("@rules_rocq_rust//rocq:defs.bzl", "rocq_assumptions_test")
+
+rocq_assumptions_test(
+    name = "my_lib_assumptions_test",
+    deps = [":my_lib"],
+    allowed_axioms = [],  # any axiom or Admitted proof fails the build
+)
+```
+
+It emits `<name>.assumptions.json` — which theorems are clean and which
+axioms each tainted one depends on — as machine-readable trusted-base
+evidence, rather than a hand-maintained count that can drift across files.
+
+**`rocq-of-rust`'s Rust-to-Rocq translation is trusted, not verified.** The
+`coq_of_rust_library`/`rocq_rust_verified_library` rules translate Rust source
+into a Rocq model and then prove properties *about that model*. A theorem
+proved this way says nothing about the original Rust if the translation is
+unfaithful — the translation step itself sits inside this toolchain's trusted
+base, the same way an ISA semantics model sits inside the trusted base of a
+hardware proof. `rocq_assumptions_test` and `rocq_proof_test` gate what
+happens *after* translation; they do not, and cannot, validate the
+translation step itself. Downstream honesty ledgers consuming proofs built
+with `coq_of_rust_library` should record rocq-of-rust's translation as a
+named trusted-base entry, not assume it away.
+
 ## License
 
 Apache-2.0 &mdash; see [LICENSE](LICENSE).
