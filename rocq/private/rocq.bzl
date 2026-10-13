@@ -229,7 +229,16 @@ def _rocq_library_impl(ctx):
 
     # Create depsets
     source_depset = depset(sources)
-    compiled_depset = depset(compiled_files)
+
+    # Transitive, like all_sources below -- a dependent several aliases deep
+    # (e.g. point_compiled -> rocq_of_rust_lib -> rocq_of_rust_main, whose own
+    # .vo depends on RecordUpdate.vo/M.vo/lib_lib.vo compiled by ITS deps)
+    # needs every ancestor's .vo as a declared action input, not just its
+    # direct dep's own single file -- otherwise Bazel has no edge forcing
+    # those deeper compile actions to run first, and coqc intermittently
+    # fails with "Cannot find library ... in loadpath" depending on action
+    # scheduling order (confirmed: RocqOfRust.RecordUpdate, rules_rocq_rust#53).
+    compiled_depset = depset(compiled_files, transitive = transitive_compiled)
     all_sources = depset(sources, transitive = transitive_sources)
 
     # Add this library's include path for dependents
