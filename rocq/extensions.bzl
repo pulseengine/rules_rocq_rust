@@ -30,6 +30,10 @@ _RocqToolchainTag = tag_class(
             doc = "Include dependencies for rocq-of-rust (coqutil, hammer, smpl)",
             default = True,
         ),
+        "with_fp_proof_deps": attr.bool(
+            doc = "Include dependencies for machine-checked floating-point error-bound proofs (Flocq, Gappa, Coq-Interval, Coquelicot -- see #37/#41/#43). Independent of with_rocq_of_rust_deps: a consumer who needs neither skips both nixpkgs_package fetches and the gappalib-coq/rocq_interval_env from-source builds entirely.",
+            default = True,
+        ),
     },
 )
 
@@ -90,23 +94,17 @@ filegroup(
 
 # Toolchain info wrapper - provides the coqc executable
 # stdlib comes from @rocq_stdlib package for Rocq 9.0+
-# External libraries (coqutil, hammer, hammer_tactics, smpl) included for real RocqOfRust library
+# External libraries (coqutil/hammer/hammer_tactics/smpl for rocq-of-rust;
+# flocq/interval/coquelicot/gappalib for FP error-bound proofs) are each only
+# declared below when their own with_*_deps flag is on -- the kwargs below
+# are empty for whichever group a consumer opted out of, so this never
+# references a repo that was never created.
 rocq_toolchain_info(
     name = "rocq_toolchain_info",
     coqc = ":coqc_bin",
     coq_tools = ":coq_tools",
     stdlib = "@rocq_stdlib//:stdlib",
-    coqutil = "@rocq_coqutil//:coqutil",
-    hammer = "@rocq_hammer//:hammer",
-    hammer_tactics = "@rocq_hammer_tactics//:hammer_tactics",
-    hammer_ocaml_plugins = "@rocq_hammer//:ocaml_plugins",
-    hammer_tactics_ocaml_plugins = "@rocq_hammer_tactics//:ocaml_plugins",
-    smpl = "@rocq_smpl//:smpl",
-    smpl_ocaml_plugins = "@rocq_smpl//:ocaml_plugins",
-    flocq = "@rocq_flocq//:flocq",
-    interval = "@rocq_interval//:interval",
-    coquelicot = "@rocq_coquelicot//:coquelicot",
-    gappalib = "@rocq_gappalib//:gappalib",
+{extra_toolchain_kwargs}
 )
 
 # Register as toolchain
@@ -330,14 +328,34 @@ def _rocq_impl(module_ctx):
         for toolchain in mod.tags.toolchain:
             toolchains.append(toolchain)
 
-    # Use the first toolchain configuration
+    # rocq_version/strategy: the first module's config wins (can't meaningfully
+    # union two different Rocq versions -- unchanged pre-#51 behavior).
+    #
+    # with_deps / with_fp_deps: the UNION (logical OR) across every module that
+    # declares a .toolchain(...) tag, not just the first one. These are
+    # capability toggles, not conflicting settings -- if ANY module in the
+    # graph needs rocq-of-rust deps or FP-proof deps, the shared toolchain
+    # instance must provide them, or that module's own use_repo(...) breaks
+    # (confirmed empirically: a consuming module's narrower request silently
+    # broke this repo's OWN use_repo(rocq, "rocq_coquelicot", ...) before this
+    # fix, since "first module wins" let the consumer's False outvote this
+    # repo's own True). A module that wants to skip a group states so via
+    # with_*_deps = False; it only actually skips the download if NO other
+    # module in the graph needs that group either.
     if toolchains:
         config = toolchains[0]
         rocq_version = config.version
-        with_deps = config.with_rocq_of_rust_deps
+        with_deps = False
+        with_fp_deps = False
+        for t in toolchains:
+            if t.with_rocq_of_rust_deps:
+                with_deps = True
+            if t.with_fp_proof_deps:
+                with_fp_deps = True
     else:
         rocq_version = "9.0"
         with_deps = True
+        with_fp_deps = True
 
     rocq_attr = _get_rocq_attr(rocq_version)
 
@@ -356,12 +374,39 @@ import (builtins.fetchTarball {{
 
     nixpkgs_repo = "@rocq_nixpkgs"
 
+    # Build the optional rocq_toolchain_info kwargs -- only reference a repo
+    # that's actually declared below, so toggling either with_*_deps flag off
+    # skips both the nixpkgs fetch/from-source build AND the dangling label
+    # reference (the pre-#51 version of this template hardcoded every label
+    # regardless of the flags, which meant with_rocq_of_rust_deps = False was
+    # already broken -- nothing exercised that path until now).
+    extra_kwargs = []
+    if with_deps:
+        extra_kwargs.extend([
+            '    coqutil = "@rocq_coqutil//:coqutil",',
+            '    hammer = "@rocq_hammer//:hammer",',
+            '    hammer_tactics = "@rocq_hammer_tactics//:hammer_tactics",',
+            '    hammer_ocaml_plugins = "@rocq_hammer//:ocaml_plugins",',
+            '    hammer_tactics_ocaml_plugins = "@rocq_hammer_tactics//:ocaml_plugins",',
+            '    smpl = "@rocq_smpl//:smpl",',
+            '    smpl_ocaml_plugins = "@rocq_smpl//:ocaml_plugins",',
+        ])
+    if with_fp_deps:
+        extra_kwargs.extend([
+            '    flocq = "@rocq_flocq//:flocq",',
+            '    interval = "@rocq_interval//:interval",',
+            '    coquelicot = "@rocq_coquelicot//:coquelicot",',
+            '    gappalib = "@rocq_gappalib//:gappalib",',
+        ])
+
     # Create main Rocq toolchain using nixpkgs_package
     nixpkgs_package(
         name = "rocq_toolchains",
         repository = nixpkgs_repo,
         attribute_path = rocq_attr,
-        build_file_content = _ROCQ_BUILD_FILE,
+        build_file_content = _ROCQ_BUILD_FILE.format(
+            extra_toolchain_kwargs = "\n".join(extra_kwargs),
+        ),
     )
 
     # Create Rocq stdlib (needed for Rocq 9.0)
@@ -407,6 +452,10 @@ import (builtins.fetchTarball {{
             branch = "rocq-9.0",
         )
 
+    # Create external dependencies for FP error-bound proofs -- independent
+    # of with_deps above: a consumer who wants neither skips both groups of
+    # downloads/from-source builds entirely (#51).
+    if with_fp_deps:
         # Flocq - floating-point formalization library (#37)
         nixpkgs_package(
             name = "rocq_flocq",

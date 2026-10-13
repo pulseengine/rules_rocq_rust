@@ -47,11 +47,40 @@ nix_repo.github(
 use_repo(nix_repo, "nixpkgs")
 
 # Rocq toolchain extension - uses nixpkgs for hermetic Rocq/Coq
+#
+# NOT dev_dependency (unlike nix_repo above): register_toolchains(...) and
+# use_repo(rocq, ...) below are unconditional top-level statements that Bazel
+# evaluates for every module in the graph regardless of root status: marking
+# the extension usage dev_dependency=True was tried while building #51's
+# with_fp_proof_deps split, and it broke THIS repo's own use_repo/
+# register_toolchains ("No repository visible as '@rocq_toolchains' from
+# repository '@@rules_rocq_rust+'") the moment this repo was consumed as a
+# plain bazel_dep rather than run as root -- dev_dependency doesn't make the
+# surrounding use_repo/register_toolchains calls conditional, it just drops
+# the binding they still unconditionally reference.
+#
+# Net effect: with_rocq_of_rust_deps/with_fp_proof_deps are unioned (logical
+# OR) across every module's .toolchain(...) tag in the graph (see
+# _rocq_impl's comment in rocq/extensions.bzl) -- so toggling one off ONLY
+# actually skips that group's downloads when NO OTHER module in the graph
+# (including this repo's own root config below) still needs it. Since this
+# repo's own examples/tests need both groups, a pure bazel_dep consumer's
+# with_*_deps=False does not yet skip anything on its own; it still protects
+# this repo's own build from the consumer's narrower request (previously a
+# crash), rather than silently losing a race. Fully honoring a downstream
+# opt-out requires splitting this repo's own self-test toolchain config out
+# of the extension's public surface -- tracked as a follow-up, not attempted
+# here.
 rocq = use_extension("//rocq:extensions.bzl", "rocq")
 rocq.toolchain(
     strategy = "nix",  # Hermetic nix-based installation
     version = "9.0",  # Rocq 9.0.1 (required for real RocqOfRust library)
+    with_fp_proof_deps = True,  # Include Flocq/Gappa/Coq-Interval/Coquelicot (#37/#41/#43).
     with_rocq_of_rust_deps = True,  # Include coqutil, hammer, smpl
+    # This repo's own examples (gappa_proof, interval_proof) need both groups;
+    # a consumer needing neither can set either/both to False -- it only
+    # actually skips the download if no other module in the graph needs that
+    # group either (see the dev_dependency note above).
 )
 
 # smpl is built from source (rocq-9.0 branch) since nixpkgs only has up to Coq 8.15
