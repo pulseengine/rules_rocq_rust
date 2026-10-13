@@ -31,14 +31,22 @@ Bazel rules for Rocq theorem proving and Rust formal verification with hermetic 
 
 ### Nix (Required)
 
-```bash
-# macOS
-sh <(curl -L https://nixos.org/nix/install)
-. /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+Use the [Determinate Nix Installer](https://github.com/DeterminateSystems/nix-installer), not the
+official NixOS installer. On macOS, Apple resets `/etc/zshrc` (and other global `/etc/*` config)
+on every OS update as a matter of policy, which silently strips the Nix shell hook; the Determinate
+installer ships a LaunchDaemon that detects and repairs this automatically on boot ("Nix Survival
+Mode" -- see [issue #48](https://github.com/pulseengine/rules_rocq_rust/issues/48) for the
+root-caused writeup). The official installer has no equivalent, so without it the hook silently
+disappears after every macOS update and has to be rediscovered and repaired by hand.
 
-# Linux
-sh <(curl -L https://nixos.org/nix/install) --daemon
+```bash
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 ```
+
+CI deliberately uses [`cachix/install-nix-action`](https://github.com/cachix/install-nix-action)
+instead (see `.github/workflows/ci.yml`): CI runners are fresh ephemeral VMs on every run, so the
+self-healing daemon that matters on a long-lived dev machine has nothing to persist across and
+nothing to repair.
 
 ### Rust Nightly (Linux only)
 
