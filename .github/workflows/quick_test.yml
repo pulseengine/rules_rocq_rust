@@ -15,10 +15,10 @@ jobs:
     
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       
     - name: Set up Bazel
-      uses: bazelbuild/setup-bazelisk@v3
+      uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
       
     - name: Verify Bazel loads
       run: |

@@ -20,13 +20,13 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
     - name: Set up Bazel
-      uses: bazelbuild/setup-bazelisk@v3
+      uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
 
     - name: Cache Bazel
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: ~/.cache/bazel
         key: bazel-verify-${{ runner.os }}-${{ hashFiles('MODULE.bazel', 'MODULE.bazel.lock') }}
@@ -52,10 +52,10 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
     - name: Install Nix
-      uses: cachix/install-nix-action@v30
+      uses: cachix/install-nix-action@08dcb3a5e62fa31e2da3d490afc4176ef55ecd72 # v30
       with:
         nix_path: ${{ env.NIXPKGS_CHANNEL }}
 
@@ -64,10 +64,10 @@ jobs:
     # (see docs/rules_rust-migration.md).
 
     - name: Set up Bazel
-      uses: bazelbuild/setup-bazelisk@v3
+      uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
 
     - name: Cache Bazel
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: ~/.cache/bazel
         key: bazel-build-${{ runner.os }}-${{ hashFiles('MODULE.bazel', 'MODULE.bazel.lock') }}
@@ -94,13 +94,13 @@ jobs:
         ls -la verified-artifacts/
 
     - name: Upload verified artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: verified-proofs-linux
         path: verified-artifacts/
 
     - name: Attest build provenance
-      uses: actions/attest-build-provenance@v2
+      uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
       with:
         subject-path: verified-artifacts/*
 
@@ -116,18 +116,18 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
     - name: Install Nix
-      uses: cachix/install-nix-action@v30
+      uses: cachix/install-nix-action@08dcb3a5e62fa31e2da3d490afc4176ef55ecd72 # v30
       with:
         nix_path: ${{ env.NIXPKGS_CHANNEL }}
 
     - name: Set up Bazel
-      uses: bazelbuild/setup-bazelisk@v3
+      uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
 
     - name: Cache Bazel
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: ~/.cache/bazel
         key: bazel-build-${{ runner.os }}-${{ hashFiles('MODULE.bazel', 'MODULE.bazel.lock') }}
@@ -148,13 +148,13 @@ jobs:
         ls -la verified-artifacts/
 
     - name: Upload verified artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: verified-proofs-macos
         path: verified-artifacts/
 
     - name: Attest build provenance
-      uses: actions/attest-build-provenance@v2
+      uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
       with:
         subject-path: verified-artifacts/*
 
@@ -165,10 +165,10 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
     - name: Set up Bazel
-      uses: bazelbuild/setup-bazelisk@v3
+      uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
 
     - name: Check formatting
       run: |
@@ -185,7 +185,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
     - name: Install PyYAML
       run: pip install --break-system-packages --quiet pyyaml
