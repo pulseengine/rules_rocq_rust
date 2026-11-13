@@ -474,9 +474,10 @@ rocq_interval_proof = rule(
 )
 
 def _rocq_assumptions_test_impl(ctx):
-    """Checks every named theorem in `deps` for unlisted axioms (issue #45).
+    """Checks every declaration in `deps` for unlisted axioms (issues #45, #57).
 
-    Runs `Print Assumptions` on each and fails the build if anything beyond
+    Enumerates declarations from the compiled modules (`Search _ inside`),
+    fails on an empty enumeration, and runs `Print Assumptions` on each and fails the build if anything beyond
     `allowed_axioms` is load-bearing (REQ-003 / CC-003). A green
     rocq_proof_test only proves the kernel accepted the proof SCRIPT; it says
     nothing about whether that script quietly rests on `Admitted` or a
@@ -591,7 +592,7 @@ rocq_assumptions_test = rule(
         ),
         "allowed_axioms": attr.string_list(
             default = [],
-            doc = "Axiom/Admitted-obligation names that are permitted to appear (e.g. accepted classical axioms). Empty by default -- any axiom or Admitted proof fails the build.",
+            doc = "Axiom/Admitted-obligation names that are permitted to appear (e.g. accepted classical axioms), matched as `Print Assumptions` prints them after `Require Import` of the target (`Local` declarations print module-qualified). Empty by default -- any axiom or Admitted proof fails the build.",
         ),
         "_checker": attr.label(
             default = Label("//rocq/private:assumptions_check.py"),
@@ -601,5 +602,5 @@ rocq_assumptions_test = rule(
         ),
     },
     toolchains = ["@rules_rocq_rust//rocq:toolchain_type"],
-    doc = "Runs `Print Assumptions` on every named theorem in `deps`; fails on any axiom or Admitted obligation not in `allowed_axioms`. Emits `<name>.assumptions.json` as machine-readable trusted-base evidence.",
+    doc = "Runs `Print Assumptions` on every declaration in `deps` (enumerated from the compiled modules); fails on any axiom or Admitted obligation not in `allowed_axioms`, and on a target with no declarations. Emits `<name>.assumptions.json` as machine-readable trusted-base evidence.",
 )

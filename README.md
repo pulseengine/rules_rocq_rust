@@ -250,10 +250,13 @@ project-local `Axiom`s.** A proof resting on either is a vacuous
 verification: the guarantee is not enforced on the path that executes.
 
 Use `rocq_assumptions_test` to close that gap. It runs Rocq's own
-`Print Assumptions` on every named theorem in a target and fails the build if
+`Print Assumptions` on every declaration of a target and fails the build if
 anything beyond an explicit `allowed_axioms` list is load-bearing — an
-`Admitted` proof surfaces as an axiom named after the theorem itself, so it
-cannot hide:
+`Admitted` proof surfaces as an axiom named after the declaration itself, so it
+cannot hide. Declarations are enumerated from the compiled module
+(`Search _ inside`), so `Example`, `Definition … Admitted.`, `Local`/`#[local]`
+forms, nested modules and top-level `Axiom`s are all checked, and a target with
+no declarations fails rather than passing unmeasured:
 
 ```starlark
 load("@rules_rocq_rust//rocq:defs.bzl", "rocq_assumptions_test")
@@ -265,7 +268,11 @@ rocq_assumptions_test(
 )
 ```
 
-It emits `<name>.assumptions.json` — which theorems are clean and which
+Allowlist entries match names as `Print Assumptions` prints them after
+`Require Import` of the target (a `Local` declaration prints module-qualified,
+e.g. `MyFile.helper`).
+
+It emits `<name>.assumptions.json` — which declarations are clean and which
 axioms each tainted one depends on — as machine-readable trusted-base
 evidence, rather than a hand-maintained count that can drift across files.
 

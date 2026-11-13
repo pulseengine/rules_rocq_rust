@@ -1,87 +1,177 @@
 #!/usr/bin/env python3
-"""Unit tests for assumptions_check.py's parsing logic (issue #45).
+"""Tests for assumptions_check.py (issues #45, #57).
 
-Grounded in real `coqc` output, captured empirically before this script was
-written:
-
-    Theorem clean_thm : 1 + 1 = 2.
-    Proof. reflexivity. Qed.
-    Axiom sneaky_axiom : False.
-    Theorem dirty_thm : 1 + 1 = 2.
-    Proof. destruct sneaky_axiom. Qed.
-    Theorem admitted_thm : 2 + 2 = 5.
-    Proof. Admitted.
-    Print Assumptions clean_thm.
-    Print Assumptions dirty_thm.
-    Print Assumptions admitted_thm.
-
-produces exactly:
-
-    Closed under the global context
-    Axioms:
-    sneaky_axiom : False
-    Axioms:
-    admitted_thm : 2 + 2 = 5
-
-confirming an Admitted proof surfaces as an axiom named after the theorem
-itself -- the load-bearing assumption this whole check rests on.
+The parser tests use coqc 9.0.1 output captured on 2026-11-13. The
+integration tests run the real checker against real coqc on planted sources;
+they need `COQC` (path to coqc). Without it they skip, unless
+`ASSUMPTIONS_REQUIRE_COQC=1` is set, in which case a missing coqc is a
+failure -- CI sets it so the negative control cannot silently skip.
 """
+import json
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
 
-sys.path.insert(0, __file__.rsplit("/", 1)[0])
-from assumptions_check import extract_theorem_names, parse_print_assumptions_output  # noqa: E402
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+from assumptions_check import parse_assumptions, parse_search_output  # noqa: E402
+
+CHECKER = os.path.join(HERE, "assumptions_check.py")
 
 
-REAL_COQC_OUTPUT = (
-    "Closed under the global context\n"
-    "Axioms:\n"
-    "sneaky_axiom : False\n"
-    "Axioms:\n"
-    "admitted_thm : 2 + 2 = 5\n"
-)
-
-
-class ParsePrintAssumptionsTest(unittest.TestCase):
-    def test_real_captured_output(self):
-        names = ["clean_thm", "dirty_thm", "admitted_thm"]
-        results = parse_print_assumptions_output(REAL_COQC_OUTPUT, names)
-        self.assertEqual(results["clean_thm"], (True, []))
-        self.assertEqual(results["dirty_thm"], (False, ["sneaky_axiom"]))
-        self.assertEqual(results["admitted_thm"], (False, ["admitted_thm"]))
-
-    def test_multiple_axioms_in_one_block(self):
-        output = "Axioms:\nfoo : nat\nbar : bool -> Prop\n"
-        results = parse_print_assumptions_output(output, ["thm"])
-        self.assertEqual(results["thm"], (False, ["foo", "bar"]))
-
-    def test_clean_only(self):
-        output = "Closed under the global context\n" * 3
-        names = ["a", "b", "c"]
-        results = parse_print_assumptions_output(output, names)
-        for n in names:
-            self.assertEqual(results[n], (True, []))
-
-
-class ExtractTheoremNamesTest(unittest.TestCase):
-    def test_extracts_all_named_forms(self):
-        import tempfile
-        import os
-
-        src = (
-            "Theorem foo : True.\nProof. exact I. Qed.\n\n"
-            "Lemma bar : True.\nProof. exact I. Qed.\n\n"
-            "Corollary baz : True.\nProof. exact I. Qed.\n\n"
-            "(* not a theorem *) Definition quux := 1.\n"
+class ParseSearchOutputTest(unittest.TestCase):
+    def test_captured_output(self):
+        # `Search _ inside P.T.` after `Require Import P.T.`, nested module and
+        # Local declarations print qualified.
+        text = (
+            "Inner.inner_bad: False\n"
+            "cheat: False\n"
+            "T.l1: False\n"
+            "ok: True\n"
+            "usev: nat -> nat\n"
+            "d1: 1 = 2\n"
         )
-        fd, path = tempfile.mkstemp(suffix=".v")
-        try:
-            with os.fdopen(fd, "w") as f:
-                f.write(src)
-            names = extract_theorem_names(path)
-        finally:
-            os.remove(path)
-        self.assertEqual(names, ["foo", "bar", "baz"])
+        self.assertEqual(
+            parse_search_output(text),
+            (["Inner.inner_bad", "cheat", "T.l1", "ok", "usev", "d1"], []),
+        )
+
+    def test_unicode_names(self):
+        # Captured: `Lemma α_bad` / `Lemma bad_λ` print verbatim.
+        text = "bad_λ: False\nα_bad: False\nok: True\n"
+        self.assertEqual(parse_search_output(text), (["bad_λ", "α_bad", "ok"], []))
+
+    def test_unrecognised_top_level_line_is_reported(self):
+        names, unparsed = parse_search_output("ok: True\nweird line without colon\n")
+        self.assertEqual(names, ["ok"])
+        self.assertEqual(unparsed, ["weird line without colon"])
+
+    def test_skips_continuation_lines_and_dedups(self):
+        text = "foo: forall n : nat,\n  n = n\nfoo: forall n : nat, n = n\nbar : True\n"
+        self.assertEqual(parse_search_output(text), (["foo", "bar"], []))
+
+    def test_empty(self):
+        self.assertEqual(parse_search_output(""), ([], []))
+
+
+class ParseAssumptionsTest(unittest.TestCase):
+    def test_clean(self):
+        self.assertEqual(parse_assumptions("Closed under the global context\n"), (True, []))
+
+    def test_admitted_and_axiom(self):
+        self.assertEqual(
+            parse_assumptions("Axioms:\nsneaky_axiom : False\nadmitted_thm : 2 + 2 = 5\n"),
+            (False, ["sneaky_axiom", "admitted_thm"]),
+        )
+
+    def test_guard_assumption_is_not_allowlistable_by_name(self):
+        clean, entries = parse_assumptions("Axioms:\nU.loop is assumed to be guarded.\n")
+        self.assertFalse(clean)
+        self.assertEqual(entries, ["[Axioms] U.loop is assumed to be guarded."])
+
+    def test_empty_output_is_a_violation(self):
+        clean, entries = parse_assumptions("")
+        self.assertFalse(clean)
+        self.assertTrue(entries)
+
+    def test_unknown_output_is_a_violation(self):
+        clean, entries = parse_assumptions("something unexpected\n")
+        self.assertFalse(clean)
+        self.assertTrue(entries)
+
+
+_PLANTED = """\
+Example ex1 : False. Admitted.
+Definition d1 : 1 = 2. Admitted.
+#[local] Lemma l1 : False. Admitted.
+Local Theorem t1 : False. Admitted.
+Axiom cheat : False.
+"""
+
+_CLEAN = """\
+Theorem plus_n_O_example : forall n : nat, n + 0 = n.
+Proof. intros n. induction n as [| n' IH]. - reflexivity. - simpl. rewrite IH. reflexivity. Qed.
+"""
+
+_CLEAN_PLUS_ONE_EXAMPLE = _CLEAN + "Example sneaky : False. Admitted.\n"
+
+
+class RealCoqcTest(unittest.TestCase):
+    def setUp(self):
+        self.coqc = os.environ.get("COQC")
+        if not self.coqc:
+            if os.environ.get("ASSUMPTIONS_REQUIRE_COQC") == "1":
+                self.fail("ASSUMPTIONS_REQUIRE_COQC=1 but COQC is not set")
+            self.skipTest("COQC not set")
+        self.tmp = tempfile.mkdtemp(prefix="assumptions_check_test_")
+        os.mkdir(os.path.join(self.tmp, "M"))
+
+    def tearDown(self):
+        if hasattr(self, "tmp"):
+            shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def check(self, name, source, allowed=()):
+        mdir = os.path.join(self.tmp, "M")
+        src = os.path.join(mdir, name + ".v")
+        with open(src, "w") as f:
+            f.write(source)
+        subprocess.run([self.coqc, "-q", "-Q", mdir, "P", src], check=True)
+        out = os.path.join(self.tmp, name)
+        cmd = [
+            sys.executable, CHECKER, "--coqc", self.coqc,
+            "--qflag", mdir + ":P", "--source", src + ":P",
+            "--driver-out", out + "_driver.v",
+            "--report-out", out + ".json",
+            "--marker-out", out + ".marker",
+        ]
+        for a in allowed:
+            cmd += ["--allowed-axiom", a]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        report = None
+        if os.path.exists(out + ".json"):
+            with open(out + ".json") as f:
+                report = json.load(f)
+        return proc, report
+
+    def test_issue57_planted_file_fails(self):
+        proc, report = self.check("Planted", _PLANTED)
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        self.assertEqual(report["declarations_checked"], 5)
+        for name in ["ex1", "d1", "cheat"]:
+            self.assertIn(name, proc.stderr)
+
+    def test_clean_theorem_passes(self):
+        proc, report = self.check("Clean", _CLEAN)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(report["theorems"], {"plus_n_O_example": {"clean": True, "axioms": []}})
+
+    def test_admitted_example_beside_clean_theorem_fails(self):
+        proc, _ = self.check("Mixed", _CLEAN_PLUS_ONE_EXAMPLE)
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        self.assertIn("sneaky", proc.stderr)
+
+    def test_unicode_admitted_lemma_fails(self):
+        proc, report = self.check(
+            "Uni", _CLEAN + "Lemma α_bad : False. Admitted.\nLemma bad_λ : False. Admitted.\n"
+        )
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        self.assertIn("α_bad", proc.stderr)
+        self.assertIn("bad_λ", proc.stderr)
+        self.assertEqual(report["declarations_checked"], 3)
+
+    def test_empty_file_fails(self):
+        proc, report = self.check("Empty", "(* nothing *)\n")
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        self.assertEqual(report["declarations_checked"], 0)
+
+    def test_allowlist_lets_named_axioms_through(self):
+        proc, _ = self.check(
+            "Allowed", _PLANTED, allowed=["ex1", "d1", "Allowed.l1", "Allowed.t1", "cheat"]
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
 
 
 if __name__ == "__main__":
