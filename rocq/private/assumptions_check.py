@@ -35,9 +35,11 @@ import tempfile
 
 _CLEAN = "Closed under the global context"
 
-# A `Search` result line: "<qualid>: <type>". Continuation lines of a wrapped
-# type start with whitespace and are skipped.
-_SEARCH_LINE_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_'.]*)\s*:(?:\s|$)")
+# A `Search` result line: "<qualid>: <type>". Rocq identifiers may be
+# Unicode (`α_bad`), so the name is any run of non-space, non-colon
+# characters. Continuation lines of a wrapped type start with whitespace and
+# are skipped; any other top-level line is unparsed and fails the check.
+_SEARCH_LINE_RE = re.compile(r"^([^\s:]+)\s*:(?:\s|$)")
 
 _PREAMBLE = [
     "Set Printing Width 100000.",
@@ -48,15 +50,26 @@ _PREAMBLE = [
 
 
 def parse_search_output(text):
-    """Return the declaration names in a `Search` output, deduplicated, in order."""
+    """Parse a `Search` output.
+
+    Returns (names, unparsed): declaration names deduplicated in order, and
+    every non-indented, non-empty line that did not parse. The caller fails on
+    a non-empty `unparsed` -- a line the parser cannot read is a declaration
+    that would otherwise go unchecked.
+    """
     names = []
+    unparsed = []
     seen = set()
     for line in text.splitlines():
+        if not line.strip() or line[0].isspace():
+            continue
         m = _SEARCH_LINE_RE.match(line)
-        if m and m.group(1) not in seen:
+        if not m:
+            unparsed.append(line)
+        elif m.group(1) not in seen:
             seen.add(m.group(1))
             names.append(m.group(1))
-    return names
+    return names, unparsed
 
 
 def parse_assumptions(text):
@@ -155,9 +168,18 @@ def main():
             sys.stderr.write("assumptions_check: FAILED -- coqc wrote no Search output for {}.\n".format(modules[i]))
             return 1
         with open(out) as f:
-            for name in parse_search_output(f.read()):
-                if name not in all_names:
-                    all_names.append(name)
+            names, unparsed = parse_search_output(f.read())
+        if unparsed:
+            sys.stderr.write(
+                "assumptions_check: FAILED -- unparsed Search output for {}; "
+                "these declarations would go unchecked:\n".format(modules[i])
+            )
+            for line in unparsed:
+                sys.stderr.write("  {}\n".format(line))
+            return 1
+        for name in names:
+            if name not in all_names:
+                all_names.append(name)
 
     if not all_names:
         report = {"declarations_checked": 0, "theorems": {}}

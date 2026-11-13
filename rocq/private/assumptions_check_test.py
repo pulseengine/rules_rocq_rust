@@ -36,15 +36,25 @@ class ParseSearchOutputTest(unittest.TestCase):
         )
         self.assertEqual(
             parse_search_output(text),
-            ["Inner.inner_bad", "cheat", "T.l1", "ok", "usev", "d1"],
+            (["Inner.inner_bad", "cheat", "T.l1", "ok", "usev", "d1"], []),
         )
+
+    def test_unicode_names(self):
+        # Captured: `Lemma α_bad` / `Lemma bad_λ` print verbatim.
+        text = "bad_λ: False\nα_bad: False\nok: True\n"
+        self.assertEqual(parse_search_output(text), (["bad_λ", "α_bad", "ok"], []))
+
+    def test_unrecognised_top_level_line_is_reported(self):
+        names, unparsed = parse_search_output("ok: True\nweird line without colon\n")
+        self.assertEqual(names, ["ok"])
+        self.assertEqual(unparsed, ["weird line without colon"])
 
     def test_skips_continuation_lines_and_dedups(self):
         text = "foo: forall n : nat,\n  n = n\nfoo: forall n : nat, n = n\nbar : True\n"
-        self.assertEqual(parse_search_output(text), ["foo", "bar"])
+        self.assertEqual(parse_search_output(text), (["foo", "bar"], []))
 
     def test_empty(self):
-        self.assertEqual(parse_search_output(""), [])
+        self.assertEqual(parse_search_output(""), ([], []))
 
 
 class ParseAssumptionsTest(unittest.TestCase):
@@ -142,6 +152,15 @@ class RealCoqcTest(unittest.TestCase):
         proc, _ = self.check("Mixed", _CLEAN_PLUS_ONE_EXAMPLE)
         self.assertEqual(proc.returncode, 1, proc.stderr)
         self.assertIn("sneaky", proc.stderr)
+
+    def test_unicode_admitted_lemma_fails(self):
+        proc, report = self.check(
+            "Uni", _CLEAN + "Lemma α_bad : False. Admitted.\nLemma bad_λ : False. Admitted.\n"
+        )
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        self.assertIn("α_bad", proc.stderr)
+        self.assertIn("bad_λ", proc.stderr)
+        self.assertEqual(report["declarations_checked"], 3)
 
     def test_empty_file_fails(self):
         proc, report = self.check("Empty", "(* nothing *)\n")
