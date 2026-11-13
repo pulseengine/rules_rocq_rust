@@ -83,8 +83,14 @@ jobs:
     - name: Run tests
       run: |
         echo "Running all tests..."
-        bazel test //examples/rust_to_rocq:all //tests:all --test_output=errors
+        bazel test //examples/rust_to_rocq:all //examples/assumptions_check:all //tests:all --test_output=errors
         echo "All tests passed"
+
+    - name: Assumptions checker tests (real coqc, negative controls)
+      run: |
+        COQC="$(bazel info output_base)/external/+rocq+rocq_toolchains/bin/coqc" \
+          ASSUMPTIONS_REQUIRE_COQC=1 \
+          python3 rocq/private/assumptions_check_test.py -v
 
     - name: Collect verified artifacts
       run: |
@@ -137,7 +143,7 @@ jobs:
     - name: Run tests
       run: |
         echo "Running all tests on macOS..."
-        bazel test //examples/rust_to_rocq:all //tests:all --test_output=errors
+        bazel test //examples/rust_to_rocq:all //examples/assumptions_check:all //tests:all --test_output=errors
         echo "All tests passed on macOS"
 
     - name: Collect verified artifacts

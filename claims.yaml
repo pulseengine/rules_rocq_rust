@@ -93,9 +93,9 @@ claims:
   # actually detect axioms/Admitted, not just claim to in prose. Structural
   # evidence for the rule + the example's own pointer resolving to a real
   # target; the detection behavior itself is verified by
-  # rocq/private/assumptions_check_test.py's unit tests against real captured
-  # coqc output (parse_print_assumptions_output), which is the part a static
-  # file-exists check can't reach.
+  # rocq/private/assumptions_check_test.py, which CI runs against real coqc
+  # (negative controls from #57 included), the part a static file-exists
+  # check can't reach.
   - id: ASSUMPTIONS-GATE
     doc: README.md
     text: "bazel test //examples/assumptions_check:clean_assumptions_test"

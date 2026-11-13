@@ -184,7 +184,7 @@ artifacts:
     status: draft
     description: Inverts UCA-003.
     fields:
-      constraint: A rocq_assumptions_test target must run Print Assumptions on every named theorem in its deps and fail the build unless every axiom (including Admitted obligations, which surface as an axiom named after the theorem) is in its allowed_axioms list. Default allowlist is empty -- any axiom or Admitted proof fails unless explicitly permitted.
+      constraint: A rocq_assumptions_test target must run Print Assumptions on every declaration in its deps (enumerated from the compiled modules, failing on an empty enumeration) and fail the build unless every axiom (including Admitted obligations, which surface as an axiom named after the theorem) is in its allowed_axioms list. Default allowlist is empty -- any axiom or Admitted proof fails unless explicitly permitted.
     links:
       - type: constrains-controller
         target: CTRL-001

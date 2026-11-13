@@ -1,73 +1,112 @@
 #!/usr/bin/env python3
-"""Runs `Print Assumptions` on every theorem in a rocq_library target and fails
-if anything beyond an explicit allowlist is load-bearing (issue #45).
+"""Runs `Print Assumptions` on every declaration in a rocq_library target and
+fails if anything beyond an explicit allowlist is load-bearing (issues #45, #57).
 
 A proof that is green but rests on an `Admitted` obligation or a project-local
 `Axiom` is exactly a vacuous verification -- the guarantee is not enforced on
 the path that executes. Coq computes the transitive closure natively:
 `Print Assumptions thm.` prints `Closed under the global context` for a clean
 theorem, or an `Axioms:` block naming everything it depends on (an `Admitted`
-proof shows up as an axiom named after the theorem itself -- verified
-empirically, not assumed, before this script was written).
+proof shows up as an axiom named after the theorem itself).
 
-Scope: flat targets only (theorem names resolved as `<logical_prefix>.<basename
+Declarations are enumerated from the COMPILED module, not from the source
+text: `Search _ inside <module>.` lists every constant, inductive and
+constructor the kernel accepted, including `Example`, `Definition ... Admitted.`,
+`#[local]`/`Local` forms, `Program` constants, nested modules and top-level
+`Axiom`s. An earlier version matched six source keywords with a regex and
+returned 0 when the regex found nothing, so a file of only `Example`/`Axiom`
+declarations passed without coqc ever running (#57). An empty enumeration is
+now a failure.
+
+Each query's output goes to its own file via `Redirect`, so one query's output
+can never be attributed to another declaration.
+
+Scope: flat targets only (module path resolved as `<logical_prefix>.<basename
 of the .v file, minus extension>`), matching every current rocq_library/
-gappa_proof/rocq_interval_proof consumer in this repo. A nested multi-file
-library (like RocqOfRust/lib/lib.v) is out of scope for now -- extend the
-module-path derivation below if one needs this check.
+gappa_proof/rocq_interval_proof consumer in this repo.
 """
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
-
-_THEOREM_RE = re.compile(
-    r"^\s*(?:Theorem|Lemma|Corollary|Fact|Remark|Proposition)\s+([A-Za-z_][A-Za-z0-9_']*)",
-    re.MULTILINE,
-)
+import tempfile
 
 _CLEAN = "Closed under the global context"
 
+# A `Search` result line: "<qualid>: <type>". Continuation lines of a wrapped
+# type start with whitespace and are skipped.
+_SEARCH_LINE_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_'.]*)\s*:(?:\s|$)")
 
-def extract_theorem_names(source_path):
-    with open(source_path, "r", errors="ignore") as f:
-        text = f.read()
-    return _THEOREM_RE.findall(text)
+_PREAMBLE = [
+    "Set Printing Width 100000.",
+    # Search hides these name patterns by default; an Admitted lemma named
+    # Private_foo would otherwise never be checked.
+    'Remove Search Blacklist "_subproof" "_subterm" "Private_".',
+]
 
 
-def parse_print_assumptions_output(output, names):
-    """Split coqc's stdout into one result per `Print Assumptions <name>.`
-    query, in the order issued. Returns {name: (is_clean, [axiom_names])}.
+def parse_search_output(text):
+    """Return the declaration names in a `Search` output, deduplicated, in order."""
+    names = []
+    seen = set()
+    for line in text.splitlines():
+        m = _SEARCH_LINE_RE.match(line)
+        if m and m.group(1) not in seen:
+            seen.add(m.group(1))
+            names.append(m.group(1))
+    return names
+
+
+def parse_assumptions(text):
+    """Parse one `Print Assumptions` output. Returns (is_clean, [entries]).
+
+    Entries under `Axioms:` that look like `name : type` contribute `name`
+    (matchable against the allowlist). Any other line -- e.g. `foo is assumed
+    to be guarded.`, or a line under another section header -- is kept whole,
+    prefixed with its section, so it cannot match an allowlist entry by accident.
     """
-    results = {}
-    # Each query's output is either exactly _CLEAN, or "Axioms:\n<name> : <ty>\n"*
-    # possibly interleaved with warnings we don't emit (we compile with -q).
-    # Split on the two possible block headers, keeping the split effective
-    # across repeated invocations.
-    chunks = re.split(r"(?=" + re.escape(_CLEAN) + r"|Axioms:)", output)
-    chunks = [c for c in chunks if c.strip()]
-    idx = 0
-    for chunk in chunks:
-        if idx >= len(names):
-            break
-        name = names[idx]
-        if chunk.startswith(_CLEAN):
-            results[name] = (True, [])
-        elif chunk.startswith("Axioms:"):
-            axiom_lines = chunk.splitlines()[1:]
-            axioms = []
-            for line in axiom_lines:
-                line = line.strip()
-                if not line:
-                    continue
-                # "name : type" -- take the name, stop at the first top-level ':'.
-                axioms.append(line.split(" : ", 1)[0].strip())
-            results[name] = (False, axioms)
-        else:
+    stripped = text.strip()
+    if stripped == _CLEAN:
+        return True, []
+    if not stripped:
+        return False, ["<empty Print Assumptions output>"]
+    entries = []
+    section = None
+    for line in text.splitlines():
+        if not line.strip() or line[0].isspace():
             continue
-        idx += 1
-    return results
+        if line.endswith(":") and " : " not in line:
+            section = line[:-1]
+            continue
+        if section == "Axioms" and " : " in line:
+            entries.append(line.split(" : ", 1)[0].strip())
+        else:
+            entries.append("[{}] {}".format(section or "?", line.strip()))
+    if not entries:
+        entries.append("<unparsed Print Assumptions output: {!r}>".format(stripped[:200]))
+    return False, entries
+
+
+def run_coqc(coqc, qflags, driver_path, outdir):
+    cmd = [coqc, "-q", "-output-directory", outdir]
+    for qspec in qflags:
+        physical, logical = qspec.split(":", 1)
+        cmd += ["-Q", physical, logical]
+    cmd.append(driver_path)
+    return subprocess.run(cmd, capture_output=True, text=True)
+
+
+def driver_failed(proc, what):
+    sys.stderr.write(proc.stdout)
+    sys.stderr.write(proc.stderr)
+    sys.stderr.write(
+        "\nassumptions_check: {} driver failed to compile -- the generated "
+        "Require Import / names didn't resolve. This is a build problem, not "
+        "an axiom finding. Check --qflag / --source.\n".format(what)
+    )
+    return 1
 
 
 def main():
@@ -83,61 +122,75 @@ def main():
 
     allowed = set(args.allowed_axiom)
 
-    all_names = []
-    driver_lines = []
-    seen_prefixes = set()
+    modules = []
     for src_spec in args.source:
         src_path, logical_prefix = src_spec.split(":", 1)
-        if logical_prefix not in seen_prefixes:
-            seen_prefixes.add(logical_prefix)
-        module_basename = src_path.rsplit("/", 1)[-1][: -len(".v")]
+        module_basename = os.path.basename(src_path)[: -len(".v")]
         module_path = "{}.{}".format(logical_prefix, module_basename) if logical_prefix else module_basename
-        driver_lines.append("Require Import {}.".format(module_path))
-        names = extract_theorem_names(src_path)
-        all_names.extend(names)
+        if module_path not in modules:
+            modules.append(module_path)
 
-    for name in all_names:
-        driver_lines.append("Print Assumptions {}.".format(name))
+    if not modules:
+        sys.stderr.write("assumptions_check: FAILED -- no source modules in deps; nothing would be checked.\n")
+        return 1
 
-    with open(args.driver_out, "w") as f:
-        f.write("\n".join(driver_lines) + "\n")
+    requires = ["Require Import {}.".format(m) for m in modules]
+    workdir = tempfile.mkdtemp(prefix="assumptions_check_")
+
+    # Pass 1: enumerate declarations from the compiled modules.
+    enum_driver = os.path.join(workdir, "enumerate.v")
+    with open(enum_driver, "w") as f:
+        lines = requires + _PREAMBLE
+        for i, m in enumerate(modules):
+            lines.append('Redirect "decls_{}" Search _ inside {}.'.format(i, m))
+        f.write("\n".join(lines) + "\n")
+    proc = run_coqc(args.coqc, args.qflag, enum_driver, workdir)
+    if proc.returncode != 0:
+        return driver_failed(proc, "enumeration")
+
+    all_names = []
+    for i in range(len(modules)):
+        out = os.path.join(workdir, "decls_{}.out".format(i))
+        if not os.path.exists(out):
+            sys.stderr.write("assumptions_check: FAILED -- coqc wrote no Search output for {}.\n".format(modules[i]))
+            return 1
+        with open(out) as f:
+            for name in parse_search_output(f.read()):
+                if name not in all_names:
+                    all_names.append(name)
 
     if not all_names:
-        # No named theorems found -- nothing to check, but say so rather than
-        # silently reporting success on a target this script never measured.
-        report = {"target_had_no_named_theorems": True, "theorems": {}}
+        report = {"declarations_checked": 0, "theorems": {}}
         with open(args.report_out, "w") as f:
             json.dump(report, f, indent=2)
-        with open(args.marker_out, "w") as f:
-            f.write("no named theorems found\n")
-        return 0
-
-    cmd = [args.coqc, "-q"]
-    for qspec in args.qflag:
-        physical, logical = qspec.split(":", 1)
-        cmd += ["-Q", physical, logical]
-    cmd += [args.driver_out]
-
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    # coqc's own kernel check already ran (that's the compile); a non-zero
-    # exit here means the DRIVER failed to load the module, not that a proof
-    # is vacuous -- a real build problem, not an assumptions finding.
-    if proc.returncode != 0:
-        sys.stderr.write(proc.stdout)
-        sys.stderr.write(proc.stderr)
+        with open(args.driver_out, "w") as f:
+            f.write("\n".join(requires) + "\n")
         sys.stderr.write(
-            "\nassumptions_check: driver failed to compile -- this means the "
-            "generated Require Import / theorem names didn't resolve, not "
-            "that a proof depends on an axiom. Check --qflag / --source.\n"
+            "assumptions_check: FAILED -- found no declarations in {}. "
+            "Refusing to pass a target that was never measured.\n".format(", ".join(modules))
         )
         return 1
 
-    results = parse_print_assumptions_output(proc.stdout, all_names)
+    # Pass 2: one Print Assumptions per declaration, each redirected to its
+    # own file.
+    driver_lines = requires + _PREAMBLE
+    for i, name in enumerate(all_names):
+        driver_lines.append('Redirect "pa_{}" Print Assumptions {}.'.format(i, name))
+    with open(args.driver_out, "w") as f:
+        f.write("\n".join(driver_lines) + "\n")
+    proc = run_coqc(args.coqc, args.qflag, args.driver_out, workdir)
+    if proc.returncode != 0:
+        return driver_failed(proc, "Print Assumptions")
 
-    report = {"target_had_no_named_theorems": False, "theorems": {}}
+    report = {"declarations_checked": len(all_names), "theorems": {}}
     violations = []
-    for name in all_names:
-        is_clean, axioms = results.get(name, (False, ["<Print Assumptions output not parsed>"]))
+    for i, name in enumerate(all_names):
+        out = os.path.join(workdir, "pa_{}.out".format(i))
+        if os.path.exists(out):
+            with open(out) as f:
+                is_clean, axioms = parse_assumptions(f.read())
+        else:
+            is_clean, axioms = False, ["<no Print Assumptions output>"]
         report["theorems"][name] = {"clean": is_clean, "axioms": axioms}
         if is_clean:
             continue
@@ -155,12 +208,12 @@ def main():
         sys.stderr.write(
             "\nIf these are intentional, add them to allowed_axioms on the "
             "rocq_assumptions_test target. An Admitted proof shows up here "
-            "as an axiom named after the theorem itself.\n"
+            "as an axiom named after the declaration itself.\n"
         )
         return 1
 
     with open(args.marker_out, "w") as f:
-        f.write("{} theorem(s) checked, all clean or explicitly allowed\n".format(len(all_names)))
+        f.write("{} declaration(s) checked, all clean or explicitly allowed\n".format(len(all_names)))
     return 0
 
 
