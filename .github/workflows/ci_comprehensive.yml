@@ -15,7 +15,7 @@ jobs:
     # only, no Nix); the macOS leg stays hosted. matrix.os is unchanged so the
     # check names stay "Verify Rules (ubuntu-latest)" / "(macos-latest)".
     # Fork PRs stay on hosted.
-    runs-on: ${{ matrix.os != 'ubuntu-latest' && matrix.os || (github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","linux","x64","light"]')) }}
+    runs-on: ${{ matrix.os != 'ubuntu-latest' && matrix.os || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-latest') }}
     strategy:
       fail-fast: false
       matrix:
