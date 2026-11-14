@@ -15,8 +15,9 @@ jobs:
   # Basic loading verification (fast, no nix required)
   verify-rules:
     name: Verify Rules Load
-    # Stays on ubuntu-latest: uses bazelbuild/setup-bazelisk; Bazel is not pre-installed on smithy.
-    runs-on: ubuntu-latest
+    # Light: bazel query only, no Nix (verified with a clean output base and no
+    # nix on PATH). setup-bazelisk installs Bazel. Fork PRs stay on hosted.
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-latest' }}
 
     steps:
     - name: Checkout repository
@@ -167,7 +168,7 @@ jobs:
   # Buildifier check
   buildifier:
     name: Buildifier Check
-    runs-on: [self-hosted, linux, x64, light]
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-latest' }}
 
     steps:
     - name: Checkout repository
@@ -187,7 +188,7 @@ jobs:
   # proof fails a rocq_proof_test -- the claim IS the artifact being gated.
   claim-check:
     name: Claim Check
-    runs-on: [self-hosted, linux, x64, light]
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-latest' }}
 
     steps:
     - name: Checkout repository
