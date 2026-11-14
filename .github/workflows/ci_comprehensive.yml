@@ -11,8 +11,11 @@ jobs:
   # Multi-platform verification
   verify-multiplatform:
     name: Verify Rules (${{ matrix.os }})
-    # Stays on hosted: needs Bazel (not on smithy) and macOS in matrix (smithy is Linux-only).
-    runs-on: ${{ matrix.os }}
+    # The ubuntu-latest leg runs on the light self-hosted pool (bazel query
+    # only, no Nix); the macOS leg stays hosted. matrix.os is unchanged so the
+    # check names stay "Verify Rules (ubuntu-latest)" / "(macos-latest)".
+    # Fork PRs stay on hosted.
+    runs-on: ${{ matrix.os != 'ubuntu-latest' && matrix.os || (github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","linux","x64","light"]')) }}
     strategy:
       fail-fast: false
       matrix:

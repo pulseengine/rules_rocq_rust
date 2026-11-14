@@ -16,7 +16,7 @@ on:
 jobs:
   docs:
     name: Documentation Check
-    runs-on: [self-hosted, linux, x64, light]
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || fromJSON('["self-hosted","linux","x64","light"]') }}
     
     steps:
     - name: Checkout
