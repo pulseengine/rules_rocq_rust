@@ -116,6 +116,7 @@ def _smpl_source_impl(repository_ctx):
 
     if build_result.return_code != 0:
         print("nix-build failed: {}".format(build_result.stderr))
+
         # Fall back to trying with system rocqc/coqc
         _try_system_build(repository_ctx)
         return

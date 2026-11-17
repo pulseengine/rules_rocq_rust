@@ -22,8 +22,8 @@ alias(
 # This generates point.v from point.rs
 coq_of_rust_library(
     name = "point_translated",
-    rust_sources = ["point.rs"],
     edition = "2021",
+    rust_sources = ["point.rs"],
 )
 
 # Step 2: Compile the translated Rocq code
@@ -37,9 +37,9 @@ coq_of_rust_library(
 rocq_library(
     name = "point_compiled",
     srcs = [":point_translated"],
+    extra_flags = ["-impredicative-set"],
     include_path = "Example",
     deps = [":rocq_of_rust_lib"],
-    extra_flags = ["-impredicative-set"],
 )
 
 # Method 2: Convenience macro (recommended)
@@ -51,10 +51,10 @@ rocq_library(
 # deduplicates the colliding actions if their args (including `-Q`) are equal.
 rocq_rust_verified_library(
     name = "point_verified",
-    rust_sources = ["point.rs"],
     edition = "2021",
-    include_path = "Example",
     extra_flags = ["-impredicative-set"],
+    include_path = "Example",
+    rust_sources = ["point.rs"],
 )
 
 # Step 3: Prove properties about the translated code
@@ -62,11 +62,11 @@ rocq_rust_verified_library(
 rocq_library(
     name = "point_proofs",
     srcs = ["point_proofs.v"],
+    extra_flags = ["-impredicative-set"],
     deps = [
         ":point_compiled",
         ":rocq_of_rust_lib",
     ],
-    extra_flags = ["-impredicative-set"],
 )
 
 # Test target: verifies proofs compile successfully
@@ -84,9 +84,9 @@ rocq_proof_test(
 # Translate and compile advanced Rust features
 rocq_rust_verified_library(
     name = "advanced_verified",
-    rust_sources = ["advanced.rs"],
     edition = "2021",
     extra_flags = ["-impredicative-set"],
+    rust_sources = ["advanced.rs"],
 )
 
 # Test that advanced example compiles

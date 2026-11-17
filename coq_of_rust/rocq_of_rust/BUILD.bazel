@@ -71,5 +71,8 @@ rust_binary(
     srcs = ["@rocq_of_rust_build//:cli_srcs"],
     edition = "2021",
     rustc_env = _BOOTSTRAP,
-    deps = [":rocq_of_rust_lib", "@rocq_of_rust_crates//:clap"],
+    deps = [
+        ":rocq_of_rust_lib",
+        "@rocq_of_rust_crates//:clap",
+    ],
 )

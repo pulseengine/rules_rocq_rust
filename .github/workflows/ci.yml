@@ -172,14 +172,36 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-    - name: Set up Bazel
-      uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
+    # Same buildifier version and sha256 as the buildifier_prebuilt 8.5.1
+    # dev dependency in MODULE.bazel, so local and CI results agree.
+    - name: Install buildifier v8.5.1 (sha256-verified)
+      run: |
+        curl -fsSLo "$RUNNER_TEMP/buildifier" https://github.com/bazelbuild/buildtools/releases/download/v8.5.1/buildifier-linux-amd64
+        echo "887377fc64d23a850f4d18a077b5db05b19913f4b99b270d193f3c7334b5a9a7  $RUNNER_TEMP/buildifier" | sha256sum -c -
+        chmod +x "$RUNNER_TEMP/buildifier"
 
     - name: Check formatting
+      run: BUILDIFIER="$RUNNER_TEMP/buildifier" tools/buildifier_check.sh
+
+    # Planted control (ci-controls.toml, id buildifier-unformatted): the
+    # same check on a copy with an unformatted tests/BUILD.bazel must fail.
+    - name: Planted control - unformatted BUILD file must fail
       run: |
-        curl -Lo buildifier https://github.com/bazelbuild/buildtools/releases/download/v7.3.1/buildifier-linux-amd64
-        chmod +x buildifier
-        ./buildifier --mode=check -r . || echo "Some files need formatting"
+        scratch="$RUNNER_TEMP/plant-buildifier"
+        rm -rf "$scratch" && mkdir -p "$scratch"
+        git archive HEAD | tar -x -C "$scratch"
+        cp -R ci-controls/buildifier-unformatted/. "$scratch/"
+        set +e
+        out=$(cd "$scratch" && BUILDIFIER="$RUNNER_TEMP/buildifier" tools/buildifier_check.sh 2>&1)
+        rc=$?
+        set -e
+        echo "$out"
+        if [ "$rc" -eq 0 ]; then
+          echo "::error::buildifier check passed on the planted unformatted file: the gate is fail-open"
+          exit 1
+        fi
+        echo "$out" | grep -q 'tests/BUILD.bazel # reformat' || { echo "::error::check failed, but not on the planted file"; exit 1; }
+        echo "planted control failed as required (exit $rc)"
 
   # Doc-claim honesty gate (see claims.yaml / pulseengine claim-verification skill).
   # A stale/overclaiming README fails this job the same way an un-kernel-checked

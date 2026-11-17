@@ -12,9 +12,9 @@ load("@rules_rocq_rust//rocq:defs.bzl", "rocq_proof_test")
 
 rocq_rust_verified_library(
     name = "minimal_verified",
-    rust_sources = ["minimal.rs"],
     edition = "2021",
     extra_flags = ["-impredicative-set"],
+    rust_sources = ["minimal.rs"],
 )
 
 rocq_proof_test(
@@ -30,9 +30,9 @@ rocq_proof_test(
 
 rocq_rust_verified_library(
     name = "enums_verified",
-    rust_sources = ["enums.rs"],
     edition = "2021",
     extra_flags = ["-impredicative-set"],
+    rust_sources = ["enums.rs"],
 )
 
 rocq_proof_test(
@@ -48,9 +48,9 @@ rocq_proof_test(
 
 rocq_rust_verified_library(
     name = "impl_methods_verified",
-    rust_sources = ["impl_methods.rs"],
     edition = "2021",
     extra_flags = ["-impredicative-set"],
+    rust_sources = ["impl_methods.rs"],
 )
 
 rocq_proof_test(
@@ -66,6 +66,6 @@ rocq_proof_test(
 
 coq_of_rust_library(
     name = "minimal_translated",
-    rust_sources = ["minimal.rs"],
     edition = "2021",
+    rust_sources = ["minimal.rs"],
 )

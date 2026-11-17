@@ -158,14 +158,27 @@ alias(
 # RecordUpdate.v, RocqOfRust.v, lib/lib.v and lib/Notations.v -- the files the
 # ordered rocq_library targets above reference.
 _ROCQ_DIRS_TO_REMOVE = [
-    "core", "alloc", "bytes",
-    "alloy_primitives", "revm", "ruint",
-    "solana_program_token", "anza_xyz_solana_sdk",
-    "move_sui", "proofs", "examples", "scripts",
-    "legacy", "simulations_legacy", "links", "experiments",
+    "core",
+    "alloc",
+    "bytes",
+    "alloy_primitives",
+    "revm",
+    "ruint",
+    "solana_program_token",
+    "anza_xyz_solana_sdk",
+    "move_sui",
+    "proofs",
+    "examples",
+    "scripts",
+    "legacy",
+    "simulations_legacy",
+    "links",
+    "experiments",
     "simulate",
     # Remove subdirectories within lib/ but keep lib/lib.v and lib/Notations.v
-    "lib/proofs", "lib/simulate", "lib/simulations_legacy",
+    "lib/proofs",
+    "lib/simulate",
+    "lib/simulations_legacy",
 ]
 
 def _trim_rocq_library(repository_ctx):
