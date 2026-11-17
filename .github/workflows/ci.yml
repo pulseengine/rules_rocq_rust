@@ -67,13 +67,11 @@ jobs:
     - name: Set up Bazel
       uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
 
-    - name: Cache Bazel
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-      with:
-        path: ~/.cache/bazel
-        key: bazel-build-${{ runner.os }}-${{ hashFiles('MODULE.bazel', 'MODULE.bazel.lock') }}
-        restore-keys: |
-          bazel-build-${{ runner.os }}-
+    # No Bazel cache on this job (#60). A restored ~/.cache/bazel holds
+    # toolchain repos whose bin/coqc links into the previous runner's
+    # /nix/store; on a fresh runner the link dangles, the toolchain reports
+    # no coqc, and rocq_library degrades to source-only. 3 of 3 warm restores
+    # failed (2026-11-13..15); a cold run takes about 3 min.
 
     - name: Build rocq-of-rust (hermetic rules_rust build)
       run: |
