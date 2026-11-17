@@ -21,6 +21,7 @@ def rocq_rust_verified_library(
         deps: Additional Rocq dependencies
         **kwargs: Additional arguments passed to rocq_library
     """
+
     # Step 1: Translate Rust to Rocq
     coq_of_rust_library(
         name = name + "_generated",

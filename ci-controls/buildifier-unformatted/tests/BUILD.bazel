@@ -1,0 +1,2 @@
+load("@rules_rocq_rust//rocq:defs.bzl", "rocq_library")
+rocq_library( name="planted",srcs=["x.v"] )

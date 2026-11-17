@@ -1,0 +1,11 @@
+# Planted bad inputs for this repository's CI checks (format: pulseengine/plant).
+# Each control overlays `plant` onto a scratch copy of HEAD, runs `run`, and
+# must fail. CI runs these inline until plant is in the toolchain pin.
+
+[[control]]
+id = "buildifier-unformatted"
+check = "Buildifier Check"
+run = "tools/buildifier_check.sh"
+plant = "ci-controls/buildifier-unformatted"
+expect = "fail"
+stderr_or_stdout_matches = "tests/BUILD.bazel # reformat"
