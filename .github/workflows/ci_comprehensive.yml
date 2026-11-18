@@ -14,8 +14,9 @@ jobs:
     # The ubuntu-latest leg runs on the light self-hosted pool (bazel query
     # only, no Nix); the macOS leg stays hosted. matrix.os is unchanged so the
     # check names stay "Verify Rules (ubuntu-latest)" / "(macos-latest)".
-    # Fork PRs stay on hosted.
-    runs-on: ${{ matrix.os != 'ubuntu-latest' && matrix.os || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-latest') }}
+    # The "ubuntu-latest" matrix value is a name only, never a runner label;
+    # fork PRs fall back to hosted ubuntu-24.04 (pinned).
+    runs-on: ${{ matrix.os != 'ubuntu-latest' && matrix.os || ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","linux","x64","light"]') || 'ubuntu-24.04') }}
     strategy:
       fail-fast: false
       matrix:
