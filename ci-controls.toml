@@ -17,3 +17,11 @@ run = "bazel build //examples/interval_proof/planted:planted_assumptions_test"
 plant = "ci-controls/interval-admitted"
 expect = "fail"
 stderr_or_stdout_matches = "  planted_admitted: planted_admitted"
+
+[[control]]
+id = "dangling-coqc"
+check = "Build Example (Linux)"
+run = "ci-controls/dangling-coqc/run.sh"
+plant = "ci-controls/dangling-coqc"
+expect = "fail"
+stderr_or_stdout_matches = "no coqc in @@+rocq+rocq_toolchains//:coqc_bin"

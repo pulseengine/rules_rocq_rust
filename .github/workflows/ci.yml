@@ -127,6 +127,22 @@ jobs:
         echo "$out" | grep -q '^  planted_admitted: planted_admitted$' || { echo "::error::build failed, but not on the planted lemma"; exit 1; }
         echo "planted control failed as required (exit $rc)"
 
+    # Last in the job: it re-analyzes with an overridden toolchain repo.
+    # ci-controls.toml: dangling-coqc.
+    - name: Planted control - dangling bin/coqc must fail the build
+      run: |
+        set +e
+        out=$(ci-controls/dangling-coqc/run.sh 2>&1)
+        rc=$?
+        set -e
+        echo "$out" | tail -20
+        if [ "$rc" -eq 0 ]; then
+          echo "::error::rocq_proof_test passed with a dangling bin/coqc: the source-only fallback is back (#60)"
+          exit 1
+        fi
+        echo "$out" | grep -q 'no coqc in @@+rocq+rocq_toolchains//:coqc_bin' || { echo "::error::build failed, but not on the missing coqc"; exit 1; }
+        echo "planted control failed as required (exit $rc)"
+
   # macOS build
   build-macos:
     name: Build Example (macOS)

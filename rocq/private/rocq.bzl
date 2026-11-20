@@ -35,19 +35,17 @@ def _rocq_library_impl(ctx):
         if not src.path.endswith(".v"):
             fail("rocq_library only accepts .v files, got: " + src.path)
 
-    # Get toolchain info
+    # No toolchain or no coqc is an error, never a source-only fallback: a
+    # library that compiled nothing would let rocq_proof_test pass on any
+    # .v file that exists (#60).
     toolchain = ctx.toolchains["@rules_rocq_rust//rocq:toolchain_type"]
-
-    # If no toolchain available, fall back to source collection only
     if not toolchain or not hasattr(toolchain, "rocq_info"):
-        return _rocq_library_source_only(ctx, sources)
+        fail("rocq_library {}: no Rocq toolchain is registered; register one (rocq.toolchain() in MODULE.bazel) -- refusing to collect sources without compiling them (#60).".format(ctx.label))
 
     rocq_info = toolchain.rocq_info
     coqc = rocq_info.coqc
-
     if not coqc:
-        # No coqc found, fall back to source collection
-        return _rocq_library_source_only(ctx, sources)
+        fail("rocq_library {}: the Rocq toolchain has no coqc -- refusing to collect sources without compiling them (#60).".format(ctx.label))
 
     # Process dependencies
     transitive_sources = []
@@ -265,52 +263,34 @@ def _rocq_library_impl(ctx):
         ),
     ]
 
-def _rocq_library_source_only(ctx, sources):
-    """Fallback when no toolchain available - just collect sources."""
-    transitive_sources = []
-    include_paths = []  # List of (physical_path, logical_path) tuples
-
-    for dep in ctx.attr.deps:
-        if RocqInfo in dep:
-            transitive_sources.append(dep[RocqInfo].transitive_deps)
-            include_paths.extend(dep[RocqInfo].include_paths)
-
-    logical_path = ctx.attr.include_path if ctx.attr.include_path else ctx.label.package.replace("/", ".")
-    src_dir = sources[0].dirname if sources and sources[0].dirname else "."
-    include_paths.append((src_dir, logical_path))
-
-    source_depset = depset(sources)
-    all_sources = depset(sources, transitive = transitive_sources)
-
-    return [
-        DefaultInfo(
-            files = source_depset,
-            runfiles = ctx.runfiles(files = sources),
-        ),
-        RocqInfo(
-            sources = source_depset,
-            compiled = None,
-            include_paths = include_paths,
-            output_dir = "",
-            transitive_deps = all_sources,
-        ),
-    ]
-
 def _rocq_proof_test_impl(ctx):
-    """Test that Rocq proofs compile successfully.
+    """Test that Rocq proofs compiled successfully.
 
-    If toolchain available, verifies .vo files were produced.
-    Otherwise, just checks source files exist.
+    The kernel check happens when the deps compile; this test fails closed if
+    a dep compiled nothing or a listed source was not compiled by any dep
+    (#60), then checks every compiled .vo is present.
     """
     sources = ctx.files.srcs
     dep_sources = []
     dep_compiled = []
+    dep_own_sources = {}
+
+    if not ctx.attr.deps:
+        fail("rocq_proof_test {}: no deps -- nothing would be compiled or checked (#60).".format(ctx.label))
 
     for dep in ctx.attr.deps:
         if RocqInfo in dep:
-            dep_sources.extend(dep[RocqInfo].transitive_deps.to_list())
-            if dep[RocqInfo].compiled:
-                dep_compiled.extend(dep[RocqInfo].compiled.to_list())
+            info = dep[RocqInfo]
+            if not info.compiled or not info.compiled.to_list():
+                fail("rocq_proof_test {}: dep {} provides no compiled .vo files; a proof test needs compiled deps (#60).".format(ctx.label, dep.label))
+            dep_sources.extend(info.transitive_deps.to_list())
+            dep_compiled.extend(info.compiled.to_list())
+            for s in info.sources.to_list():
+                dep_own_sources[s.path] = True
+
+    for src in sources:
+        if src.path not in dep_own_sources:
+            fail("rocq_proof_test {}: {} is listed in srcs but no dep compiles it; add it to a rocq_library in deps (#60).".format(ctx.label, src.short_path))
 
     all_sources = sources + dep_sources
 

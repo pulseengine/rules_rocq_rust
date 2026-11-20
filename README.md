@@ -147,7 +147,8 @@ bazel build //:point_proofs
 
 ### rocq_library
 
-Compiles Rocq `.v` files to `.vo`.
+Compiles Rocq `.v` files to `.vo`. With no registered Rocq toolchain, or a
+toolchain without `coqc`, the build fails; there is no source-only fallback.
 
 | Attribute | Description |
 |-----------|-------------|
@@ -171,7 +172,10 @@ Convenience macro: translates Rust to Rocq and compiles.
 
 ### rocq_proof_test
 
-Test rule that verifies proofs compile successfully.
+Test rule that verifies proofs compiled successfully. It fails at analysis if
+it has no `deps`, if a dep provides no compiled `.vo` files, or if a file in
+`srcs` is not compiled by any dep. The kernel check itself happens when the
+deps compile.
 
 ## Toolchain Contents
 

@@ -57,7 +57,9 @@ load("@rules_rocq_rust//rocq:toolchain.bzl", "rocq_toolchain_info")
 
 package(default_visibility = ["//visibility:public"])
 
-# Rocq compiler - the main binary (rocq or coqc depending on version)
+# Rocq compiler - the main binary (rocq or coqc depending on version).
+# allow_empty stays: Bazel applies it per pattern, and only one of the two
+# names exists. An empty result fails in rocq_toolchain_info instead (#60).
 filegroup(
     name = "coqc_bin",
     srcs = glob(["bin/rocqc", "bin/coqc"], allow_empty = True),
