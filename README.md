@@ -192,6 +192,19 @@ deps compile.
 | gappalib-coq | Gappa's Rocq support library (built from source against Flocq) |
 | rocq-of-rust | Rust-to-Rocq translator (pinned version) |
 
+## Lockfiles
+
+`MODULE.bazel.lock` (root and `examples/rust_to_rocq`) and
+`coq_of_rust/cargo/Cargo.lock` are committed and authoritative. `.bazelrc` sets
+`--lockfile_mode=error`, so a `MODULE.bazel` or `Cargo.toml` change the
+committed lock does not record fails instead of re-resolving; without it,
+crate_universe silently re-resolves a stale `Cargo.lock` and rewrites it. After
+a dependency change, run `bazel mod deps --lockfile_mode=update` in the root
+and in `examples/rust_to_rocq`, and commit the lockfiles.
+`tools/lockfile_check.sh` (CI, Build Example (Linux)) fails if a lockfile is
+missing, out of date with its manifests, or a `Cargo.lock` has a RustSec
+vulnerability.
+
 ## Supported Platforms
 
 | Platform | Status |

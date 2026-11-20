@@ -1,0 +1,6 @@
+# Lockfiles are authoritative: a MODULE.bazel or Cargo.toml change that the
+# committed MODULE.bazel.lock does not record fails instead of silently
+# re-resolving (and, for crate_universe, rewriting Cargo.lock). After a
+# dependency change run `bazel mod deps --lockfile_mode=update` and commit the
+# lockfiles; for the nested BCR test module do the same in examples/rust_to_rocq.
+common --lockfile_mode=error

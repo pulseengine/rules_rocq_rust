@@ -1,0 +1,10 @@
+[package]
+name = "planted_vulnerable_lock"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+smallvec = "=1.6.0"

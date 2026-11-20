@@ -359,7 +359,7 @@
     "@@rules_nixpkgs_core+//extensions:repository.bzl%nix_repo": {
       "general": {
         "bzlTransitiveDigest": "dTTtWNdwe7E4j77oKh1mHI1qtdxfaVSGSZa1oPf2QjU=",
-        "usagesDigest": "A5fEewkdRLsSB2RG3E8SvpMzJyIgJU8ucM73dx3vgO0=",
+        "usagesDigest": "ylTq2T9TPKQ5kC2JZhrQNzBwB0GlKh1LnDZHoRdTL50=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},

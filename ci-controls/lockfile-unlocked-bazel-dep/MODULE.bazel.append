@@ -1,0 +1,4 @@
+
+# Planted (ci-controls.toml: lockfile-unlocked-bazel-dep): a bazel_dep that
+# MODULE.bazel.lock does not record. --lockfile_mode=error must reject it.
+bazel_dep(name = "zstd", version = "1.5.7")

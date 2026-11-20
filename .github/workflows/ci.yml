@@ -67,6 +67,44 @@ jobs:
     - name: Set up Bazel
       uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
 
+    - name: Install cargo-audit (pinned release, sha256-checked)
+      env:
+        CARGO_AUDIT_VERSION: v0.22.1
+        CARGO_AUDIT_SHA256: c32506f338bdcdaef5a17fb9f33abb6ecf9561324cfd34237fd335f9283a1eab
+      run: |
+        name="cargo-audit-x86_64-unknown-linux-musl-${CARGO_AUDIT_VERSION}"
+        curl -sSfL -o "$RUNNER_TEMP/ca.tgz" "https://github.com/rustsec/rustsec/releases/download/cargo-audit%2F${CARGO_AUDIT_VERSION}/${name}.tgz"
+        echo "${CARGO_AUDIT_SHA256}  $RUNNER_TEMP/ca.tgz" | sha256sum -c -
+        tar -xzf "$RUNNER_TEMP/ca.tgz" -C "$RUNNER_TEMP"
+        echo "CARGO_AUDIT=$RUNNER_TEMP/${name}/cargo-audit" >> "$GITHUB_ENV"
+
+    # Every lockfile committed, consistent with its manifests, and every
+    # Cargo.lock audited. .bazelrc sets --lockfile_mode=error for every bazel
+    # command in every job.
+    - name: Lockfiles - committed, locked, audited
+      run: tools/lockfile_check.sh
+
+    # ci-controls.toml: lockfile-unlocked-bazel-dep, lockfile-missing,
+    # lockfile-stale-cargo, lockfile-vulnerable.
+    - name: Planted controls - lockfile gate must fail on each
+      run: |
+        expect_fail() {
+          local id="$1" pattern="$2"; shift 2
+          set +e; out=$("$@" 2>&1); rc=$?; set -e
+          echo "$out" | tail -8
+          if [ "$rc" -eq 0 ]; then echo "::error::$id passed: the lockfile gate is fail-open"; exit 1; fi
+          echo "$out" | grep -qF "$pattern" || { echo "::error::$id failed, but not on the planted input"; exit 1; }
+          echo "$id: planted control failed as required (exit $rc)"
+        }
+        cat ci-controls/lockfile-unlocked-bazel-dep/MODULE.bazel.append >> MODULE.bazel
+        expect_fail lockfile-unlocked-bazel-dep "not permitted with --lockfile_mode=error" bazel query //rocq/...
+        expect_fail lockfile-unlocked-bazel-dep "MODULE.bazel.lock is out of date with ./MODULE.bazel" tools/lockfile_check.sh
+        git checkout -- MODULE.bazel
+        git diff --exit-code -- MODULE.bazel MODULE.bazel.lock
+        expect_fail lockfile-missing "has no committed Cargo.lock" tools/lockfile_check.sh ci-controls/lockfile-missing
+        expect_fail lockfile-stale-cargo "Cargo.lock is out of date with" tools/lockfile_check.sh ci-controls/lockfile-stale-cargo
+        expect_fail lockfile-vulnerable "RUSTSEC-2021-0003" tools/lockfile_check.sh ci-controls/lockfile-vulnerable
+
     # No Bazel cache on this job (#60). A restored ~/.cache/bazel holds
     # toolchain repos whose bin/coqc links into the previous runner's
     # /nix/store; on a fresh runner the link dangles, the toolchain reports
