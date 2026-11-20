@@ -26,7 +26,9 @@ def _find_lib_path(files, pattern, logical_name):
 def _rocq_toolchain_info_impl(ctx):
     """Create a RocqToolchainInfo provider for the toolchain."""
     coqc_files = ctx.files.coqc
-    coqc = coqc_files[0] if coqc_files else None
+    if not coqc_files:
+        fail("rocq_toolchain_info {}: no coqc in {} -- the toolchain repository has no bin/coqc (a dangling /nix/store link after a cache restore or Nix garbage collection leaves this state; refetch with `bazel fetch --force --repo=@rocq_toolchains`). Refusing to continue without a compiler (#60).".format(ctx.label, ctx.attr.coqc.label if ctx.attr.coqc else "the coqc attribute"))
+    coqc = coqc_files[0]
 
     # Get stdlib files and compute the path
     stdlib_files = ctx.files.stdlib
