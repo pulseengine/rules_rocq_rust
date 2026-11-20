@@ -9,3 +9,11 @@ run = "tools/buildifier_check.sh"
 plant = "ci-controls/buildifier-unformatted"
 expect = "fail"
 stderr_or_stdout_matches = "tests/BUILD.bazel # reformat"
+
+[[control]]
+id = "interval-admitted"
+check = "Build Example (Linux)"
+run = "bazel build //examples/interval_proof/planted:planted_assumptions_test"
+plant = "ci-controls/interval-admitted"
+expect = "fail"
+stderr_or_stdout_matches = "  planted_admitted: planted_admitted"

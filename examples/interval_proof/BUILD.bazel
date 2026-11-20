@@ -2,7 +2,8 @@
 # Require Import Interval.Tactic actually resolves and a proof compiles --
 # not just that the coq-interval package is fetched.
 
-load("@rules_rocq_rust//rocq:defs.bzl", "rocq_interval_proof", "rocq_proof_test")
+load("@rules_rocq_rust//rocq:defs.bzl", "rocq_assumptions_test", "rocq_interval_proof", "rocq_proof_test")
+load(":trusted_base.bzl", "KERNEL_PRIMITIVES", "STDLIB_REAL_AXIOMS")
 
 rocq_interval_proof(
     name = "smoke",
@@ -13,4 +14,19 @@ rocq_proof_test(
     name = "smoke_test",
     srcs = [],
     deps = [":smoke"],
+)
+
+# rocq_assumptions_test over a rocq_interval_proof (#66): the audit runs under
+# the interval coqc and names the Stdlib real-number axioms the proof rests
+# on. The planted negative control (an Admitted lemma inside an interval
+# proof) lives in ci-controls/interval-admitted and runs in CI.
+rocq_interval_proof(
+    name = "sqrt2_bound",
+    srcs = ["sqrt2_bound.v"],
+)
+
+rocq_assumptions_test(
+    name = "sqrt2_bound_assumptions_test",
+    allowed_axioms = KERNEL_PRIMITIVES + STDLIB_REAL_AXIOMS,
+    deps = [":sqrt2_bound"],
 )

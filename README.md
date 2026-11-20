@@ -272,6 +272,13 @@ Allowlist entries match names as `Print Assumptions` prints them after
 `Require Import` of the target (a `Local` declaration prints module-qualified,
 e.g. `MyFile.helper`).
 
+`deps` may also be `rocq_interval_proof` targets. Those are audited under the
+Coq-Interval environment's own coqc, so one test cannot mix them with
+toolchain-compiled `rocq_library` targets; use two tests. An interval proof
+rests on the Stdlib real-number axioms and on the kernel's primitive integer,
+float and array operations; `examples/interval_proof/trusted_base.bzl` lists
+the measured set (102 names for `sqrt2_bound`).
+
 It emits `<name>.assumptions.json` — which declarations are clean and which
 axioms each tainted one depends on — as machine-readable trusted-base
 evidence, rather than a hand-maintained count that can drift across files.

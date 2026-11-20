@@ -14,6 +14,8 @@ RocqInfo = provider(
         "include_paths": "list of (physical_path, logical_path) tuples for -Q flag",
         "output_dir": "string: directory containing compiled .vo files",
         "transitive_deps": "depset of all transitive Rocq dependencies",
+        "coqc": "optional File: the coqc that compiled this target when it is not the toolchain coqc (rocq_interval_proof); unset otherwise",
+        "coqc_inputs": "optional list of Files that `coqc` needs as action inputs; unset otherwise",
     },
 )
 
@@ -392,8 +394,9 @@ def _rocq_interval_proof_impl(ctx):
     coq_9_0.withPackages(...) environment (@rocq_interval_env) rather than by
     the primary toolchain's hand-wired extra_libs -- see rules_rocq_rust#43.
     That composed coqc already has its own default load path (Stdlib,
-    Flocq, Interval, Coquelicot, mathcomp, Bignums, HB, elpi), so no -Q
-    flags are needed here.
+    Flocq, Interval, Coquelicot, mathcomp, Bignums, HB, elpi), so the only
+    -Q flag is the target's own: it gives each module the logical name
+    `<package dotted>.<basename>` that rocq_assumptions_test resolves (#66).
     """
     sources = ctx.files.srcs
     if not sources:
@@ -404,6 +407,7 @@ def _rocq_interval_proof_impl(ctx):
 
     coqc = ctx.executable._interval_coqc
     env_files = ctx.files._interval_env_files
+    logical_path = ctx.label.package.replace("/", ".")
 
     compiled_files = []
     for src in sources:
@@ -414,6 +418,8 @@ def _rocq_interval_proof_impl(ctx):
         args.add("-q")
         for flag in ctx.attr.extra_flags:
             args.add(flag)
+        args.add("-Q", vo_file.dirname)
+        args.add(logical_path)
         args.add("-o", vo_file)
         args.add(src)
 
@@ -442,9 +448,11 @@ def _rocq_interval_proof_impl(ctx):
         RocqInfo(
             sources = depset(sources),
             compiled = compiled_depset,
-            include_paths = [],
-            output_dir = "",
+            include_paths = [(compiled_files[0].dirname, logical_path)],
+            output_dir = compiled_files[0].dirname,
             transitive_deps = depset(sources),
+            coqc = coqc,
+            coqc_inputs = env_files,
         ),
     ]
 
@@ -484,24 +492,43 @@ def _rocq_assumptions_test_impl(ctx):
     project-local `Axiom` -- this is the check that closes
     that gap. Flat targets only; see assumptions_check.py's module docstring.
     """
-    toolchain = ctx.toolchains["@rules_rocq_rust//rocq:toolchain_type"]
-    if not toolchain or not hasattr(toolchain, "rocq_info"):
-        fail("rocq_assumptions_test requires the Rocq toolchain to be registered (no fallback -- an unchecked assumptions test is worse than no test).")
-    rocq_info = toolchain.rocq_info
-    coqc = rocq_info.coqc
-    if not coqc:
-        fail("rocq_assumptions_test: toolchain has no coqc.")
 
+    # A dep compiled by its own coqc (rocq_interval_proof, #66) must be
+    # audited by that coqc: its .vo files are only loadable against the
+    # environment they were compiled in, which has its own Stdlib. So every
+    # dep must share one coqc, and the toolchain's -Q flags are not added.
+    dep_coqcs = [getattr(dep[RocqInfo], "coqc", None) for dep in ctx.attr.deps if RocqInfo in dep]
+    own_coqcs = [c for c in dep_coqcs if c]
     qflags = []
+    toolchain_files = []
+    if own_coqcs:
+        if len(own_coqcs) != len(dep_coqcs) or [c for c in own_coqcs if c != own_coqcs[0]]:
+            fail("rocq_assumptions_test: deps were compiled by different coqc binaries (e.g. a rocq_interval_proof next to a rocq_library); check them in separate rocq_assumptions_test targets.")
+        coqc = own_coqcs[0]
+        for dep in ctx.attr.deps:
+            toolchain_files.extend(getattr(dep[RocqInfo], "coqc_inputs", None) or [])
+        toolchain_files.append(coqc)
+    else:
+        toolchain = ctx.toolchains["@rules_rocq_rust//rocq:toolchain_type"]
+        if not toolchain or not hasattr(toolchain, "rocq_info"):
+            fail("rocq_assumptions_test requires the Rocq toolchain to be registered (no fallback -- an unchecked assumptions test is worse than no test).")
+        rocq_info = toolchain.rocq_info
+        coqc = rocq_info.coqc
+        if not coqc:
+            fail("rocq_assumptions_test: toolchain has no coqc.")
+        if hasattr(rocq_info, "stdlib_path") and rocq_info.stdlib_path:
+            qflags.append(rocq_info.stdlib_path + ":Stdlib")
+        if hasattr(rocq_info, "extra_libs"):
+            for lib_files, logical_name, lib_path in rocq_info.extra_libs:
+                if lib_path:
+                    qflags.append(lib_path + ":" + logical_name)
+                toolchain_files.extend(lib_files)
+        if hasattr(rocq_info, "stdlib") and rocq_info.stdlib:
+            toolchain_files.extend(rocq_info.stdlib.to_list())
+
     all_source_files = []
     source_specs = []
     dep_vo_files = []
-    if hasattr(rocq_info, "stdlib_path") and rocq_info.stdlib_path:
-        qflags.append(rocq_info.stdlib_path + ":Stdlib")
-    if hasattr(rocq_info, "extra_libs"):
-        for lib_files, logical_name, lib_path in rocq_info.extra_libs:
-            if lib_path:
-                qflags.append(lib_path + ":" + logical_name)
 
     for dep in ctx.attr.deps:
         if RocqInfo not in dep:
@@ -539,17 +566,11 @@ def _rocq_assumptions_test_impl(ctx):
     args.add("--report-out", report)
     args.add("--marker-out", marker)
 
-    stdlib_files = rocq_info.stdlib.to_list() if hasattr(rocq_info, "stdlib") and rocq_info.stdlib else []
-    extra_lib_files = []
-    if hasattr(rocq_info, "extra_libs"):
-        for lib_files, _, _ in rocq_info.extra_libs:
-            extra_lib_files.extend(lib_files)
-
     ctx.actions.run(
         executable = ctx.executable._checker,
         arguments = [args],
         inputs = depset(
-            all_source_files + dep_vo_files + stdlib_files + extra_lib_files,
+            all_source_files + dep_vo_files + toolchain_files,
         ),
         outputs = [driver, report, marker],
         mnemonic = "RocqPrintAssumptions",
