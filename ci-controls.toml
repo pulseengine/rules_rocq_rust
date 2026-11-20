@@ -25,3 +25,35 @@ run = "ci-controls/dangling-coqc/run.sh"
 plant = "ci-controls/dangling-coqc"
 expect = "fail"
 stderr_or_stdout_matches = "no coqc in @@+rocq+rocq_toolchains//:coqc_bin"
+
+[[control]]
+id = "lockfile-unlocked-bazel-dep"
+check = "Build Example (Linux)"
+run = "cat ci-controls/lockfile-unlocked-bazel-dep/MODULE.bazel.append >> MODULE.bazel && bazel query //rocq/... && tools/lockfile_check.sh"
+plant = "ci-controls/lockfile-unlocked-bazel-dep"
+expect = "fail"
+stderr_or_stdout_matches = "not permitted with --lockfile_mode=error"
+
+[[control]]
+id = "lockfile-missing"
+check = "Build Example (Linux)"
+run = "tools/lockfile_check.sh ci-controls/lockfile-missing"
+plant = "ci-controls/lockfile-missing"
+expect = "fail"
+stderr_or_stdout_matches = "has no committed Cargo.lock"
+
+[[control]]
+id = "lockfile-stale-cargo"
+check = "Build Example (Linux)"
+run = "tools/lockfile_check.sh ci-controls/lockfile-stale-cargo"
+plant = "ci-controls/lockfile-stale-cargo"
+expect = "fail"
+stderr_or_stdout_matches = "Cargo.lock is out of date with"
+
+[[control]]
+id = "lockfile-vulnerable"
+check = "Build Example (Linux)"
+run = "tools/lockfile_check.sh ci-controls/lockfile-vulnerable"
+plant = "ci-controls/lockfile-vulnerable"
+expect = "fail"
+stderr_or_stdout_matches = "RUSTSEC-2021-0003"
