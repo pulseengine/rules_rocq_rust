@@ -1,0 +1,13 @@
+load("@rules_rocq_rust//rocq:defs.bzl", "rocq_assumptions_test", "rocq_interval_proof")
+load("//examples/interval_proof:trusted_base.bzl", "KERNEL_PRIMITIVES", "STDLIB_REAL_AXIOMS")
+
+rocq_interval_proof(
+    name = "planted",
+    srcs = ["planted.v"],
+)
+
+rocq_assumptions_test(
+    name = "planted_assumptions_test",
+    allowed_axioms = KERNEL_PRIMITIVES + STDLIB_REAL_AXIOMS,
+    deps = [":planted"],
+)

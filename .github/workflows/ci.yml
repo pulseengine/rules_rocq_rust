@@ -82,7 +82,7 @@ jobs:
     - name: Run tests
       run: |
         echo "Running all tests..."
-        bazel test //examples/rust_to_rocq:all //examples/assumptions_check:all //tests:all --test_output=errors
+        bazel test //examples/rust_to_rocq:all //examples/assumptions_check:all //examples/interval_proof:all //tests:all --test_output=errors
         echo "All tests passed"
 
     - name: Assumptions checker tests (real coqc, negative controls)
@@ -108,6 +108,24 @@ jobs:
       uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
       with:
         subject-path: verified-artifacts/*
+
+    # Runs after artifact collection so the planted .vo is never attested.
+    # ci-controls.toml: interval-admitted.
+    - name: Planted control - Admitted lemma in an interval proof must fail the assumptions audit
+      run: |
+        cp -R ci-controls/interval-admitted/. .
+        set +e
+        out=$(bazel build //examples/interval_proof/planted:planted_assumptions_test 2>&1)
+        rc=$?
+        set -e
+        rm -rf examples/interval_proof/planted
+        echo "$out" | tail -20
+        if [ "$rc" -eq 0 ]; then
+          echo "::error::assumptions audit passed on the planted Admitted lemma: the gate is fail-open for rocq_interval_proof"
+          exit 1
+        fi
+        echo "$out" | grep -q '^  planted_admitted: planted_admitted$' || { echo "::error::build failed, but not on the planted lemma"; exit 1; }
+        echo "planted control failed as required (exit $rc)"
 
   # macOS build
   build-macos:
@@ -142,7 +160,7 @@ jobs:
     - name: Run tests
       run: |
         echo "Running all tests on macOS..."
-        bazel test //examples/rust_to_rocq:all //examples/assumptions_check:all //tests:all --test_output=errors
+        bazel test //examples/rust_to_rocq:all //examples/assumptions_check:all //examples/interval_proof:all //tests:all --test_output=errors
         echo "All tests passed on macOS"
 
     - name: Collect verified artifacts

@@ -1,0 +1,3 @@
+# Planted negative controls (ci-controls.toml): overlaid onto a checkout and
+# expected to fail, never built in place.
+ci-controls
