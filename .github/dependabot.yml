@@ -1,0 +1,48 @@
+version: 2
+# Grouped monthly updates (fleet template from pulseengine/rivet, owner
+# decision 2026-11-21). Every entry runs monthly (the 1st, 02:00 UTC), keeps
+# at most 2 PRs open, and waits 7 days after a release (cooldown). Lockstep
+# groups would come first (Dependabot uses the FIRST group a dependency
+# matches; this repo has none), then one minor-patch group. Majors stay
+# ungrouped, one PR each.
+#
+# cargo: coq_of_rust/cargo is consumed by crate_universe, so a Cargo.lock bump
+# also needs MODULE.bazel.lock regenerated. CI runs with
+# --lockfile_mode=error (.bazelrc) and tools/lockfile_check.sh, so a
+# Dependabot cargo PR that changes only Cargo.lock fails until
+# `bazel mod deps --lockfile_mode=update` is run and committed on its branch.
+# ci-controls/ is deliberately not listed: its Cargo.locks are planted bad
+# inputs (one pins a vulnerable smallvec) and must not be updated.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+      time: "02:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 2
+    cooldown:
+      default-days: 7
+    labels:
+      - dependencies
+    groups:
+      github-actions-all:
+        patterns:
+          - "*"
+  - package-ecosystem: cargo
+    directories:
+      - /coq_of_rust/cargo
+    schedule:
+      interval: monthly
+      time: "02:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 2
+    cooldown:
+      default-days: 7
+    labels:
+      - dependencies
+    groups:
+      minor-patch:
+        update-types:
+          - minor
+          - patch
