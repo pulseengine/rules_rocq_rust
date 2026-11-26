@@ -43,10 +43,12 @@ updates:
       - dependencies
     # rocq-of-rust compiles on the pinned nightly-2024-12-07 (MODULE.bazel).
     # rpds 1.2.1 -> archery 1.2.3 -> triomphe 0.1.17 uses const Layout fns
-    # that nightly rejects (PR #73). Lift these when the nightly pin moves.
+    # that nightly rejects (PR #73); rpds 1.1.2 already pulls the same
+    # archery/triomphe (PR #76), and ignore entries do not stop transitive
+    # bumps, so rpds is held at 1.1.0. Lift these when the nightly pin moves.
     ignore:
       - dependency-name: rpds
-        versions: [">=1.2.0"]
+        versions: [">=1.1.1"]
       - dependency-name: archery
         versions: [">=1.2.1"]
       - dependency-name: triomphe
